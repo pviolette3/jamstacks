@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JamServer Tests</title>
+    <script type="text/javascript">
+    try {
+        class __DoesTheBrowserSuck {}
+    } catch (e) {
+        alert('Your browser doesnt support the glory ' + 
+              'of React.JS -- sorry no jamz for you!!');
+    }
+    </script>
+    <script src="./freezer.js"></script>
+    <script src="./react.js"></script>
+    <script src="./react-dom.js"></script>
+    <script src="./jam.js"></script>
+</head>
+<body>
+    Tests of all the components.
+    <div id="card"></div>
+    <div id="card-list"></div>
+    <div id="panel"></div>
+</body>
+<script type="text/javascript">
+    // A "simple" function that updates the subcomponent when the freezer
+    // object is updated.
+    function makeApp(nodeType, freezer, getProps) {
+        class _App extends React.Component {
+            componentDidMount() {
+                var me = this;
+                freezer.on('update', function() { me.forceUpdate(); });
+            }
+            render() {
+                var props = {state: freezer.get()};
+                if (getProps !== undefined) {
+                    props = Object.assign(props, getProps(props.state));
+                }
+                return React.createElement(nodeType, props);
+            }
+        }
+        return _App;
+    }
+</script>
+<script type="text/javascript">
+    ReactDOM.render(
+        React.createElement(Card, {rank: 'Queen', suit: 'Hearts'}),
+        document.getElementById('card'));
+</script>
+<script type="text/javascript">
+    ReactDOM.render(
+        React.createElement(CardList, {cards: [
+            {rank: 'Queen', suit: 'Hearts'},
+            {rank: 'King', suit: 'Spades'},
+            {rank: '2', suit: 'Diamonds'}]}),
+        document.getElementById('card-list'));
+</script>
+<script type="text/javascript">
+    (function() {
+        var freezer = new Freezer({
+            bet: 3,
+            cards: [
+                {rank: 'Queen', suit: 'Hearts'},
+                {rank: 'King', suit: 'Spades'}],
+            playerState: {
+                stack: 50,
+                amountInPot: 20,
+                folded: false,
+            },
+        });
+        ReactDOM.render(
+            React.createElement(makeApp(
+                PlayerBetPanel,
+                freezer,
+                freezer => { return {player: freezer.playerState}; }), null),
+            document.getElementById('panel'));
+    })();
+</script>
+</html>

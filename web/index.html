@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JamServer</title>
+    <script type="text/javascript">
+    try {
+        // A hacky compatibility check.
+        eval('class __DoesTheBrowserSuck {}');
+    } catch (e) {
+        alert('Your browser doesnt support the glory ' + 
+              'of React.JS -- sorry no jams for you!!');
+    }
+    </script>
+    <script src="./react.min.js"></script>
+    <script src="./freezer.js"></script>
+    <script src="./react-dom.min.js"></script>
+    <script src="./jam.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+<script type="text/javascript">
+    ReactDOM.render(
+        React.createElement(App, null),
+        document.getElementById('root'));
+</script>
+</html>
