@@ -1,3 +1,4 @@
+syntax = "proto3";
 
 package jam;
 
@@ -5,7 +6,9 @@ message CardViewList {
     repeated CardView cards = 1;
 }
 
+// A card that can be hidden. For example, players can't see each other's cards.
 message CardView {
+
     oneof view {
         Card card = 1;
         bool hidden = 2;
@@ -21,7 +24,7 @@ message Card {
     }
 
     // The suit of the card.
-    optional Suit suit = 1;
+    Suit suit = 1;
 
     enum Rank {
         ACE = 1;
@@ -38,4 +41,5 @@ message Card {
         QUEEN = 12;
         KING = 13;
     }
+    Rank rank = 2;
 }
