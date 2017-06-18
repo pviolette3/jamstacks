@@ -11,7 +11,7 @@ check(jam_proto !== undefined, 'The protos were not loaded!');
 function findPlayer(players, playerId) {
     for (var i = 0; i < players.length; ++i) {
         if (players[i].id === playerId) {
-            return player;
+            return players[i];
         }
     }
     check(false, 'Player ' + playerId + ' does not exist in ' + players);
@@ -21,11 +21,12 @@ function findPlayer(players, playerId) {
 lastError = null;
 ERROR_CLEARING_TIMEOUT = 1000;
 function clearErrors(freezer) {
-    freezer.get().ui.remove('error');
+    freezer.get().ui.error.set('message', null);
 }
 
-function uiSetError(freezer, state, message) {
-    state.ui.error.set({message: message});
+function uiSetError(freezer, message) {
+    console.error(message);
+    freezer.get().ui.error.set('message', message);
     clearTimeout(lastError);
     lastError = setTimeout(
         clearErrors.bind(null, freezer), ERROR_CLEARING_TIMEOUT);
@@ -37,32 +38,22 @@ function setupEvents(freezer) {
         var playerId = state.ui.playerId;
         var player = findPlayer(state.players, playerId);
         var playerState = findPlayer(state.currentHand.playerStates, playerId);
-        if (betSize > player.stackSize) {
-            uiSetError(freezer, state, 'Bet size of ' + betSize +
-                         ' is bigger than your stack size ' + 
-                         player.stackSize);
+        var maxBet = player.stackSize - playerState.amountInPot;
+        if (betSize > maxBet) {
+            uiSetError(freezer, 'Bet of ' + betSize +
+                         ' would put more than you have (' + 
+                         player.stackSize + ') in the pot.');
             return;
         } else if (betSize < state.currentHand.board.pot.currentBet) {
             uiSetError(
                 freezer,
-                state,
                 'The minimum bet is ' + state.currentHand.board.pot.currentBet);
+            return;
         }
         betSize = Math.round(betSize);
         // Set .now() in case the user is typing.
         playerState.set('betSize', betSize).now();
     });
-}
-
-// Get the Freezer object.
-//
-// Tests can overwrite this function. #dependencyinjection #dictsandstrings
-function getFreezer() {
-    if (__jamFreezer === undefined) {
-        __jamFreezer = new Freezer({});
-        setupEvents(__jamFreezer);
-    }
-    return __jamFreezer;
 }
 
 ////////// StateLESS components //////////
@@ -149,17 +140,24 @@ function Board(props) {
 // Cards would be hidden for players who aren't the logged in player -- but
 // the server has to handle this view.
 function PlayerPanel(props) {
-    var player = props.player;
-
+    var player = findPlayer(props.players, props.playerId);
+    var playerState = findPlayer(props.currentHand.playerStates, props.playerId);
+    var amountInPotText = 'Amount in pot: ';
+    if (playerState.betSize) {
+        amountInPotText += (playerState.amountInPot + playerState.betSize) +
+                       ' (' + playerState.amountInPot + ' before bet)';
+    } else {
+        amountInPotText += playerState.amountInPot;
+    }
     return e('div',  {className: 'player'}, [
         // Game-specific info.
         e('div', {key: 'name', className: 'name'}, player.name),
-        e('div', {key: 'stack', className: 'stack'}, player.stack),
+        e('div', {key: 'stack', className: 'stack'}, 'Stack: ' + player.stackSize),
         // Hand-specific info.
-        e(CardList, {key: 'cards', cards: player.cards}),
-        e('div', {key: 'pot', className: 'amountInPot'}, player.amountInPot),
+        e(CardList, {key: 'cards', cards: playerState.cards}),
+        e('div', {key: 'pot', className: 'amountInPot'}, amountInPotText),
         e('div', {key: 'folded', className: 'folded'}, (
-            player.folded ? 'yes' : 'no')),
+            'Folded: ' + (playerState.active ? 'no' : 'yes'))),
     ]);
 }
 
@@ -169,9 +167,9 @@ function PlayerPanel(props) {
 // encouragement.
 function LoggedInPlayerPanel(props) {
     return e('div', null, [
-            e(SpecialMessage, {message: 'You are a real BBQ with that hand!'}),
-            e(PlayerPanel, Object.assign({key: 'player'}, props.state.playerState)),
-            e(Bet, {state: props.state, player: props.state.playerState, key: 'bet'}),
+            e(SpecialMessage, {key: 'message', message: 'You are a real BBQ with that hand!'}),
+            e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
+            e(Bet, Object.assign({key: 'bet'}, props)),
     ]);
 }
 
@@ -212,42 +210,41 @@ class App extends React.Component {
     }
 
     // This will re-render the whole app when the game state changes.
-    componentDidMount() { getFreezer().on('update', this.forceUpdate); }
+    componentDidMount() { this.props.events.on('update', this.forceUpdate); }
 }
 
-// UI to get the user's bet. TODO add fun sound effects.
-class Bet extends React.Component {
-    render() {
-        var state = this.props.state;
-        var player = this.props.player;
-        var handleInputBox = (function(event) {
-            var text = event.target.value;
-            if (text.length === 0) {
-                updateBet(0);
-            }
-            var bet = parseInt(text);
-            if (!isNaN(bet)) {
-                getFreezer().emit('update:bet', bet);
-            }
-        }).bind(this);
-        var placeBetButtons = e('div', {className: 'bet'}, [
-                e('span', {key: 'current-bet'}, 'Bet: ' + state.bet),
-                e('span', {className: 'betAmount', key: 'update-buttons'},
-                    [e('button', {
-                        className: 'betButton',
-                        key: '+2',
-                        onClick: updateBet.bind(null, state.bet + 2)}, '+2'),
-                    e('button', {
-                        className: 'betButton',
-                        key: '+4',
-                        onClick: updateBet.bind(null, state.bet + 4)}, '+4'),
-                    e('button', {
-                        className: 'betButton',
-                        style: {background: 'red', color: 'green'},
-                        key: 'all_in',
-                        onClick: updateBet.bind(null, player.stack)}, 'JAM!!!'),
-                    e('input', {onChange: handleInputBox, value: state.bet, key: 'input'})])
-                ]);
-        return player.folded ? null : placeBetButtons;
+// UI to get the user's bet, based on the GameState. TODO add fun sound effects.
+function Bet(props) {
+    check(props.playerViewId === props.currentHand.playerViewId, 'The player views should match.');
+    var player = findPlayer(props.players, props.playerViewId);
+    var playerState = findPlayer(props.currentHand.playerStates, props.playerViewId);
+    function tryUpdateBet(bet) {
+        props.events.emit('update:bet', bet);
     }
+    function handleInputBox(event) {
+        var text = event.target.value;
+        var bet = text.length === 0 ? 0 : parseInt(text);
+        if (!isNaN(bet)) {
+            tryUpdateBet(bet);
+        }
+    };
+    var placeBetButtons = e('div', {className: 'bet'}, [
+            e('span', {key: 'current-bet'}, 'Bet: ' + playerState.betSize),
+            e('span', {className: 'betAmount', key: 'update-buttons'},
+                [e('button', {
+                    className: 'betButton',
+                    key: '+2',
+                    onClick: tryUpdateBet.bind(null, playerState.betSize + 2)}, '+2'),
+                e('button', {
+                    className: 'betButton',
+                    key: '+4',
+                    onClick: tryUpdateBet.bind(null, playerState.betSize + 4)}, '+4'),
+                e('button', {
+                    className: 'betButton',
+                    style: {background: 'red', color: 'green'},
+                    key: 'all_in',
+                    onClick: tryUpdateBet.bind(null, player.stackSize - playerState.amountInPot)}, 'JAM!!!'),
+                e('input', {onChange: handleInputBox, value: playerState.betSize, key: 'input'})])
+            ]);
+    return playerState.active ? placeBetButtons : null;
 }

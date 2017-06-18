@@ -27,7 +27,7 @@
     <div><i>Tests of all the components.</i></div><br/>
     <div id="card" class="test-pane"></div>
     <div id="card-list" class="test-pane"></div>
-    <div id="panel" class="test-pane"></div>
+    <div id="logged-in-panel" class="test-pane"></div>
     <div id="board" class="test-pane"></div>
 </body>
 <script type="text/javascript">
@@ -40,7 +40,9 @@
                 freezer.on('update', function() { me.forceUpdate(); });
             }
             render() {
-                return React.createElement(nodeType, freezer.get());
+                return React.createElement(
+                    nodeType,
+                    Object.assign({events: freezer}, freezer.get()));
             }
         }
         return _App;
@@ -60,9 +62,31 @@
         document.getElementById('card-list'));
 </script>
 <script type="text/javascript">
+var loggedInPlayerFreezer = new Freezer({
+    ui: { playerId: '8', error: {} },
+    playerViewId: '8',
+    currentHand: {
+        playerViewId: '8',
+        playerStates: [
+            {id: '8', active: true, betSize: 8, amountInPot: 4, cards: [
+                {rank: 'TWO', suit: 'CLUBS'}, {rank: 'SEVEN', suit: 'SPADES'}]},
+        ],
+        board: {
+            pot: { size: 24, currentBet: 4},
+        }
+    },
+    players: [
+        {id: '8', stackSize: 50, name: 'Patrick'},
+    ],
+});
+loggedInPlayerFreezer.on('update', function(state) { if (state.error) { alert(state.error); }});
+setupEvents(loggedInPlayerFreezer);
+ReactDOM.render(
+    e(makeApp(LoggedInPlayerPanel, loggedInPlayerFreezer)),
+    document.getElementById('logged-in-panel'));
 </script>
 <script type="text/javascript">
-    // Test the board -- PRE-FLOP, FLOP, TURN, RIVER
+    // Test the board -- PRE-FLOP, FLOP, TURN, RIVER, and the pot.
     (function() {
         var handStateFreezer = new Freezer({
             street: 'PRE_FLOP',
@@ -76,8 +100,6 @@
             }
         });
         var i = 0;
-        function updateCard(i, handState) {
-        }
         var err = jam_proto.HandState.verify(
             jam_proto.HandState.fromObject(handStateFreezer.get()));
         check(!err, err);
@@ -112,7 +134,8 @@
             }
             handState.board.cards.run();
             handStateFreezer.get().set('street', street);
-            handStateFreezer.get().pot.set('size', i === 0 ? 8 : handState.pot.size + handState.pot.currentBet);
+            handStateFreezer.get().pot.set(
+                'size', i === 0 ? 8 : handState.pot.size + handState.pot.currentBet);
             handStateFreezer.get().pot.set('currentBet', i === 0 ? 2 : 2 * handState.pot.currentBet);
             var err = jam_proto.HandState.verify(
                 jam_proto.HandState.fromObject(handStateFreezer.get()));

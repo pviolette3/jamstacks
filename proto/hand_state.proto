@@ -30,15 +30,20 @@ message HandState {
         // The total stack size is stored within the game.
         int64 bet_size = 2;
 
+        // The amount the player has put in the pot this hand.
+        // The user would lose this amount if they won, or gain
+        // pot.size - this amount if they won.
+        int64 amount_in_pot = 3;
+
         // The index in the seating arrangement. 0 = dealer. Required.
-        int32 seat_index = 3;
+        int32 seat_index = 4;
 
         // True if this player is in the hand, false otherwise. Required.
-        bool active = 4;
+        bool active = 5;
 
         // Two cards in the player's hand. Censored on the client to `hidden`
         // if id != view_id; Uncensored on the server.
-        CardViewList cards = 5;
+        CardViewList cards = 6;
     }
 
     message Pot {
