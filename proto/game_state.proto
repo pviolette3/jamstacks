@@ -17,6 +17,9 @@ message GameState {
 
         // The amount the player bought in for, in cents.
         int64 buy_in_size = 4;
+
+        // The image that the UI should render for the player.
+        string image_uri = 5;
     }
 
     // The amount of money each player has. The order of the players in this
