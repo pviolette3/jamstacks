@@ -40,3 +40,40 @@ message GameState {
     }
     Status status = 6;
 }
+
+
+message UpdateError {
+    enum Code {
+        // Catch-all.
+        UNKNOWN = 0;
+
+        // The user is not registered or not allowed to do something.
+        UNAUTHORIZED = 1;
+
+        // Some naughty player tried to make an invalid action! They were
+        // authenticated, but the move was illegal.
+        ILLEGAL_ACTION = 3;
+    }
+    Code code = 1;
+    string message = 2;
+}
+
+// Updates to the game state. Either the action worked, or it didn't and there
+// is an error set. The server maintains a consistent view of the game state,
+// and pushes the game state to each client with web sockets so that no client
+// falls too far behind.
+message GameUpdate {
+    oneof update {
+        // The action worked, and here is the new game state.
+        GameState newState = 1;
+
+        // The action didn't work, and here is why.
+        UpdateError error = 2;
+    }
+
+    // The request that was sent, invariant of if it was received or not.
+    oneof request {
+        // The action the player just tried to do.
+        HandState.PlayerAction player_action = 3;
+    }
+}
