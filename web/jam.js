@@ -127,11 +127,20 @@ function SpecialMessage(props) {
     return e('div', {className: 'message'}, props.message);
 }
 
+// Render the pot.
+function Pot(props) {
+    return e('div', {className: 'pot'}, [
+            e('div', {className: 'size', key: 'size'}, 'Pot size: ' + props.size),
+            e('div', {className: 'currentBet', key: 'bet'}, 'Call bet: ' + props.currentBet),
+        ]);
+}
+
 // The board. Renders 5 cards, and displays which street we are on (flop, river,
 // etc.).
 function Board(props) {
     return e('div', {className: 'board'}, [
         e('div', {className: 'street', key: 'street'}, 'Street: ' + props.street),
+        e(Pot, Object.assign({key: 'pot'}, props.pot)),
         e(CardList, {cards: props.board.cards, key: 'cards'}),
     ]);
 }

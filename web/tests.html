@@ -66,6 +66,10 @@
     (function() {
         var handStateFreezer = new Freezer({
             street: 'PRE_FLOP',
+            pot: {
+                size:  100,
+                currentBet: 45,
+            },
             board: {
                 cards: [{hidden: true}, {hidden: true}, {hidden: true},
                         {hidden: true}, {hidden: true}],
@@ -108,6 +112,8 @@
             }
             handState.board.cards.run();
             handStateFreezer.get().set('street', street);
+            handStateFreezer.get().pot.set('size', i === 0 ? 8 : handState.pot.size + handState.pot.currentBet);
+            handStateFreezer.get().pot.set('currentBet', i === 0 ? 2 : 2 * handState.pot.currentBet);
             var err = jam_proto.HandState.verify(
                 jam_proto.HandState.fromObject(handStateFreezer.get()));
             check(!err, err);
