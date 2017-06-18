@@ -26,24 +26,37 @@ message HandState {
         // The player's id. Required.
         string id = 1;
 
-        // The amount the player has bet. Required.
+        // The amount the player will add to the pot on his/her next action.
         // The total stack size is stored within the game.
         int64 bet_size = 2;
 
-        // The amount the player has put in the pot this hand.
-        // The user would lose this amount if they won, or gain
-        // pot.size - this amount if they won.
-        int64 amount_in_pot = 3;
+        // The amount the player has already bet on this street, equal to the
+        // sum of the bet sizes on this street. Used to determine how much more
+        // the player has to add, if someone raised, or to allow the player to
+        // CHECK.
+        //
+        // For example: BB would start with street_bet_size = big_blind_size,
+        // so the BB could check if no one raised the bet from the blind size.
+        //
+        // street_bet_size is "in the pot" and cannot be removed.
+        int64 street_bet_size = 3;
+
+        // The amount the player has put in the pot this hand, before this
+        // street.
+        //
+        // The user is forced to lose this amount + street_bet_size if he/she
+        // lost, or gain pot.size - this amount - street_bet_size if they won.
+        int64 amount_in_pot = 4;
 
         // The index in the seating arrangement. 0 = dealer. Required.
-        int32 seat_index = 4;
+        int32 seat_index = 5;
 
-        // True if this player is in the hand, false otherwise. Required.
-        bool active = 5;
+        // True if this player is still in the hand, false otherwise. Required.
+        bool active = 6;
 
         // Two cards in the player's hand. Censored on the client to `hidden`
         // if id != view_id; Uncensored on the server.
-        CardViewList cards = 6;
+        CardViewList cards = 7;
     }
 
     message Pot {
