@@ -80,4 +80,16 @@ message HandState {
     // player is not active.
     // Required.
     repeated PlayerState player_states = 8;
+
+    message HandResult {
+        // The cards played that won it all.
+        Hand winning_hand = 1;
+
+        // Who was the lucky BBQ.
+        string winning_playerid = 2;
+
+        // Not stored: The unlucky BBQs that have to be mentally tough.
+    }
+    // Populated with the results of winning, if applicable.
+    HandResult result = 7;
 }
