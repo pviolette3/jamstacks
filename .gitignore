@@ -2,6 +2,10 @@
 protobuf
 googletest
 
+# Binary
+bin
+*.o
+
 # Generated code.
 web/proto
 
