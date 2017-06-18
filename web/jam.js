@@ -272,7 +272,7 @@ function ErrorModal(props) {
 }
 
 function GamePending(props) {
-    return e('div', null, 'The game is pending.');
+    return e('div', null, 'Waiting for others to join..');
 }
 
 // A component for actually playing the hand (betting, etc).
@@ -280,22 +280,22 @@ function Hand(props) {
     return e('div', null, 'The hand is going');
 }
 
-function HandEnd(props) {
-    return e('div', null, 'The hand is over.')
+function GameSummary(props) {
+    return e('div', null, 'The whole game is over.')
 }
 
 ////////// StateFUL Components //////////
 class App extends React.Component {
     render() {
         var ui = this.props.ui;
-        var  gameState = this.props.gameState;
+        var gameState = this.props.gameState;
         var modal = e(ErrorModal, {error: ui.error, key: 'error'});
         if (gameState.status === jam_proto.GameState.Status.PENDING) {
             return e(GamePending);
         } else if (gameState.status === jam_proto.GameState.Status.IN_PROGRESS) {
-            return e(Hand, {gameState: gameState});
+            return e(Hand, this.props);
         } else if (gameState.status === jame_proto.GameState.Status.OGRE) {
-            return e(HandEnd, {gameState: gameState});
+            return e(GameSummary, this.props);
         }
         check(false, 'Unrecognized game status: ' + gameState.status);
     }
