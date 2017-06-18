@@ -210,7 +210,7 @@ function Board(props) {
 // Cards would be hidden for players who aren't the logged in player -- but
 // the server has to handle this view.
 function PlayerPanel(props) {
-    var isPlayerAction = props.ui.playerId === props.currentHand.actionPlayerId;
+    var isPlayerAction = props.playerId === props.currentHand.actionPlayerId;
     var player = findPlayer(props.players, props.playerId);
     var playerState = findPlayer(props.currentHand.playerStates, props.playerId);
     var newStreetBetSize = playerState.betSize + playerState.streetBetSize;
@@ -235,7 +235,10 @@ function PlayerPanel(props) {
     }
     return e('div',  {className: 'player'}, [
         // Game-specific info.
-        e('div', {key: 'name', className: 'name'}, player.name),
+        e('div', {
+            key: 'name',
+            className: 'name',
+        }, player.name + (isPlayerAction ? ' is under the gun!' : '')),
         e('div', {key: 'stack', className: 'stack'}, stackSizeText),
         // Hand-specific info.
         e(CardList, {key: 'cards', cards: playerState.cards}),
