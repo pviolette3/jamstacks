@@ -8,7 +8,6 @@ message CardViewList {
 
 // A card that can be hidden. For example, players can't see each other's cards.
 message CardView {
-
     oneof view {
         Card card = 1;
         bool hidden = 2;
@@ -23,10 +22,10 @@ message Card {
         DIAMONDS = 3;
     }
 
-    // The suit of the card.
     Suit suit = 1;
 
     enum Rank {
+        XX_XX = 0;
         ACE = 1;
         TWO = 2;
         THREE = 3;

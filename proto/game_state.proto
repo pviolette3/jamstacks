@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+import "hand_state.proto";
+
+package jam;
+
+message GameState {
+    message Player {
+        // The current stack size, in cents.
+        int64 stack_size = 1;  // Take care of number 1.
+
+        //  The id of the player.
+        string id = 2;
+
+        // The name of the player, in the game.
+        string name = 3;
+
+        // The amount the player bought in for, in cents.
+        int64 buy_in_size = 4;
+    }
+
+    // The amount of money each player has. The order of the players in this
+    // array indicates their seating position.
+    repeated Player players = 1;  // Most important fields first.
+
+    // The id of the view of the current player.
+    string player_view_id = 2;
+
+    // The current hand state.
+    HandState current_hand = 3;
+
+}
