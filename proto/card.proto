@@ -27,7 +27,7 @@ message Card {
     Suit suit = 1;
 
     enum Rank {
-        ACE = 1;
+        UNUSED = 0;
         TWO = 2;
         THREE = 3;
         FOUR = 4;
@@ -40,6 +40,33 @@ message Card {
         JACK = 11;
         QUEEN = 12;
         KING = 13;
+        ACE = 14;
     }
     Rank rank = 2;
+}
+
+message Board {
+    repeated Card cards = 1;
+}
+
+message HoleCards {
+    Card c1 = 1;
+    Card c2 = 2;
+}
+
+message Hand {
+    enum Type {
+        UNUSED = 0;
+        HIGH_CARD = 1;
+        PAIR = 2;
+        TWO_PAIR = 3;
+        THREE_OF_A_KIND = 4;
+        STRAIGHT = 5;
+        FLUSH = 6;
+        FULL_HOUSE = 7;
+        FOUR_OF_A_KIND = 8;
+        STRAIGHT_FLUSH = 9;
+    }
+    repeated Card cards = 1;
+    Type type = 2;
 }
