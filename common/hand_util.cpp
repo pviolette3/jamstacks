@@ -46,8 +46,10 @@ namespace jam {
 
     bool is_full_house(jam::Hand const& hand) {
         std::vector<Card> cards = sorted_hand(hand);
-        return (cards[0].rank() == cards[1].rank()) && (cards[2].rank() == cards[3].rank()) &&
+        bool res = (cards[0].rank() == cards[1].rank()) && (cards[2].rank() == cards[3].rank()) &&
                 (cards[2].rank() == cards[4].rank());
+        return res || ((cards[0].rank()== cards[1].rank()) && (cards[1].rank() == cards[2].rank()) &&
+                (cards[3].rank() == cards[4].rank()));
     }
 
     bool is_flush(jam::Hand const& hand){

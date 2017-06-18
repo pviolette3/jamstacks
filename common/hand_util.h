@@ -5,8 +5,6 @@
 #ifndef JAMSTACKS_HAND_UTIL_H_H
 #define JAMSTACKS_HAND_UTIL_H_H
 
-#endif //JAMSTACKS_HAND_UTIL_H_H
-
 #include "proto/card.pb.h"
 
 namespace jam {
@@ -21,3 +19,5 @@ namespace jam {
     bool is_high_card(jam::Hand const& hand);
     std::vector<jam::Card> sorted_hand(jam::Hand const& hand);
 }
+
+#endif //JAMSTACKS_HAND_UTIL_H_H
