@@ -225,27 +225,36 @@ function PlayerPanel(props) {
     }
     var stackSizeText = 'Stack: ' + player.stackSize;
     var playerTotalInPot = playerState.amountInPot + newStreetBetSize;
-    if (playerTotalInPot > 0) {
-        console.log(props.currentHand);
-        var winStackSize = (
-            player.stackSize + props.currentHand.board.pot.size -
-            playerState.amountInPot);
-        var loseStackSize = player.stackSize - playerTotalInPot;
-        stackSizeText += ' (W=' + winStackSize + ', L=' + loseStackSize + ')';
-    }
     return e('div',  {className: 'player'}, [
         // Game-specific info.
         e('div', {
             key: 'name',
             className: 'name',
-        }, player.name + (isPlayerAction ? ' is under the gun!' : '')),
-        e('div', {key: 'stack', className: 'stack'}, stackSizeText),
+        }, player.name),
+        e('img', {
+            src: player.imageUrl || './assets/bbq.jpg',
+            className: classNames({action: isPlayerAction, 'profile-pic': true}),
+            key: 'img',
+        }),
+        e('div', {
+            key: 'stack',
+            className: classNames({stack: true, 'stillIn': !playerState.active}),
+        },
+            [
+                e('span', {key: '0', className: 'stack'}, 'Stack: '),
+                e('span', {key: '1', className: 'stack-size'}, player.stackSize),
+                e('span', {key: '3', className: 'bet'}, 'Bet: '),
+                e('span', {key: '4', className: 'bet-size'}, playerTotalInPot),
+                ((newStreetBetSize > 0) ?
+                    e('span', {
+                        key: '5',
+                        className: 'street-bet-size'},
+                        '(street: ' + newStreetBetSize + ')') : null),
+            ]),
         // Hand-specific info.
-        e(CardList, {key: 'cards', cards: playerState.cards}),
-        e('div', {key: 'bet', className: 'betSize'}, betSizeText),
-        e('div', {key: 'pot', className: 'amountInPot'}, amountInPotText),
-        e('div', {key: 'folded', className: 'folded'}, (
-            'Folded: ' + (playerState.active ? 'no' : 'yes'))),
+        e('div', {key: 'cards', className: 'cards'}, [
+            e('div', {key: '0'}, 'Cards'),
+            e(CardList, {key: 'cards', cards: playerState.cards}),])
     ]);
 }
 
@@ -256,27 +265,27 @@ function PlayerPanel(props) {
 function LoggedInPlayerPanel(props) {
     var isPlayerAction = props.ui.playerId === props.currentHand.actionPlayerId;
     return e('div', null, [
-            e(SpecialMessage, {key: 'message', message: 'You are a real BBQ with that hand!'}),
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
             (isPlayerAction ?
-                e(PlayerControls, Object.assign({key: 'actions'}, props)) :
-                e('div', {key: 'not-your-action'}, 'It\'s not your action.')),
+                e(PlayerControls, Object.assign({key: 'actions'}, props)) : null),
     ]);
-}
-
-function ErrorModal(props) {
-    if (!props.error) {
-        return null;
-    }
-    return e('div', {className: 'errorModal'}, props.error);
 }
 
 function GamePending(props) {
     return e('div', null, 'Waiting for others to join..');
 }
 
+function HandResult(props) {
+    return e('div',  null, 'Game over.');
+}
+
+
 // A component for actually playing the hand (betting, etc).
 function Hand(props) {
+    var els = [];
+    if (props.currentHand.result) {
+        els.push(e(HandResult, props));
+    }
     return e('div', null, 'The hand is going');
 }
 
@@ -336,7 +345,7 @@ function FoldButton(props) {
     function handler(event) {
         props.events.emit('update:active', !event.target.checked);
     }
-    return e('div', {className: 'checkbox'}, [
+    return e('span', {className: 'checkbox'}, [
             e('span', {key: 'label', className: 'checkbox-label'}, 'Fold: '),
             e('input', {
                 key: 'checkbox',
@@ -365,26 +374,22 @@ function Bet(props) {
     };
     // TODO make these configurable / relative to the pot etc / do the validation
     // here.
-    var placeBetButtons = e('div', {className: 'bet'}, [
-            e('span', {key: 'current-bet'}, 'Bet: ' + playerState.betSize),
+    var placeBetButtons = e('span', {className: 'bet'}, [
+            e('span', {key: 'current-bet'}, 'Bet: '),
+            e('input', {
+                onChange: handler,
+                disabled: props.ui.sending,
+                value: playerState.betSize,
+                className: 'bet-input',
+                key: 'input'}),
             e('span', {className: 'betAmount', key: 'update-buttons'},
                 [e('button', {
-                    className: 'betButton',
-                    key: '+2',
-                    disabled: props.ui.sending,
-                    onClick: tryUpdateBet.bind(null, playerState.betSize + 2)}, '+2'),
-                e('button', {
-                    className: 'betButton',
-                    disabled: props.ui.sending,
-                    key: '+4',
-                    onClick: tryUpdateBet.bind(null, playerState.betSize + 4)}, '+4'),
-                e('button', {
                     className: 'betButton',
                     disabled: props.ui.sending,
                     style: {background: 'red', color: 'green'},
                     key: 'all_in',
                     onClick: tryUpdateBet.bind(null, player.stackSize - playerState.amountInPot - playerState.streetBetSize)}, 'JAM'),
-                e('input', {onChange: handler, disabled: props.ui.sending, value: playerState.betSize, key: 'input'})])
+                ])
             ]);
     return playerState.active ? placeBetButtons : null;
 }

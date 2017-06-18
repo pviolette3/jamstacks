@@ -1,0 +1,20 @@
+.player img {
+    width: 150px;
+    height: auto;
+}
+
+.player img.action {
+    border: 5px solid red;
+}
+
+.player .stack-size {
+    font-weight: bold;
+}
+
+.player span {
+    padding: 2px;
+}
+
+.bet input.bet-input {
+    width: 30px;
+}
