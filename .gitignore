@@ -1,5 +1,7 @@
 # Downloaded code.
 protobuf
+googletest
 
 # Generated code.
 web/proto
+
