@@ -32,4 +32,11 @@ message GameState {
     // The blind sizes.
     int64 small_blind_size = 4;
     int64 big_blind_size = 5;
+
+    enum Status {
+        PENDING = 0;
+        IN_PROGRESS = 1;
+        OGRE = 2;
+    }
+    Status status = 6;
 }
