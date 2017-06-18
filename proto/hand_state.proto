@@ -112,5 +112,5 @@ message HandState {
         string player_id = 3;
     }
     // The actions taken this hand.
-    repeated Action actions = 10;
+    repeated PlayerAction.Action actions = 10;
 }
