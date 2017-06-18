@@ -90,6 +90,27 @@ message HandState {
 
         // Not stored: The unlucky BBQs that have to be mentally tough.
     }
+
     // Populated with the results of winning, if applicable.
-    HandResult result = 7;
+    HandResult result = 9;
+
+    message PlayerAction {
+        enum Action {
+            FOLD = 0;
+            CHECK = 1;
+            CALL = 2;
+            RAISE = 3;
+            ALL_IN = 4;
+        }
+        // The action the player took.
+        Action action = 1;
+
+        // The amount added to the pot.
+        int64 bet_size = 2;
+
+        // The player taking the action.
+        string player_id = 3;
+    }
+    // The actions taken this hand.
+    repeated Action actions = 10;
 }
