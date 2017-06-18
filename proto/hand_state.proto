@@ -125,5 +125,21 @@ message HandState {
         string player_id = 3;
     }
     // The actions taken this hand.
-    repeated PlayerAction.Action actions = 10;
+    repeated PlayerAction actions = 10;
+
+    // Message indicating a player is ready too move on to the next hand.
+    // Sending this message to the server will remove this player from the
+    // `waiting_on_players` field.
+    message NextHand {
+        // The player who is ready to move on to the next hand.
+        string player_id = 1;
+
+        // Optional greeting the player wants to send to the other players,
+        // after a round of playing.
+        string greeting = 2;
+    }
+
+    // For the end of the hand, the players we are still waiting on to ACK and
+    // move on to the next round.
+    repeated string waiting_on_players = 11;
 }

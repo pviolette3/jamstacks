@@ -75,5 +75,8 @@ message GameUpdate {
     oneof request {
         // The action the player just tried to do.
         HandState.PlayerAction player_action = 3;
+
+        // A player is ready to move on to the next hand.
+        HandState.NextHand next_hand = 4;
     }
 }
