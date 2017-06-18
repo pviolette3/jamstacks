@@ -20,7 +20,7 @@ function findPlayer(players, playerId) {
 //////////  External communication //////////
 
 // Abstract "class" defining the API.
-function MessageHandler() {}
+function MessageHandler(freezer) { this.freezer = freezer; }
 MessageHandler.prototype = Object.create({});
 MessageHandler.prototype.sendAction = function(action, callback) {
     check(false, 'Not implemented.')
@@ -210,22 +210,36 @@ function Board(props) {
 // Cards would be hidden for players who aren't the logged in player -- but
 // the server has to handle this view.
 function PlayerPanel(props) {
+    var isPlayerAction = props.playerId === props.currentHand.actionPlayerId;
     var player = findPlayer(props.players, props.playerId);
     var playerState = findPlayer(props.currentHand.playerStates, props.playerId);
     var newStreetBetSize = playerState.betSize + playerState.streetBetSize;
-    var amountInPotText = 'Amount in pot: ' + (playerState.amountInPot + playerState.streetBetSize);
+    var amountInPotText = 'Amount in pot: ' + (playerState.amountInPot + newStreetBetSize);
     if (playerState.streetBetSize > 0) {
-        amountInPotText += (' (' + playerState.streetBetSize + ' this street)');
+        amountInPotText += (' (' + newStreetBetSize + ' this street)');
     }
     var betSizeText = ('Bet on ' + props.currentHand.street + ': ' +
                         newStreetBetSize);
     if (playerState.streetBetSize && playerState.betSize > 0) {
-        betSizeText += ' (' + playerState.streetBetSize + ' this street)';
+        betSizeText += ' (' + playerState.streetBetSize + ' before this action)';
+    }
+    var stackSizeText = 'Stack: ' + player.stackSize;
+    var playerTotalInPot = playerState.amountInPot + newStreetBetSize;
+    if (playerTotalInPot > 0) {
+        console.log(props.currentHand);
+        var winStackSize = (
+            player.stackSize + props.currentHand.board.pot.size -
+            playerState.amountInPot);
+        var loseStackSize = player.stackSize - playerTotalInPot;
+        stackSizeText += ' (W=' + winStackSize + ', L=' + loseStackSize + ')';
     }
     return e('div',  {className: 'player'}, [
         // Game-specific info.
-        e('div', {key: 'name', className: 'name'}, player.name),
-        e('div', {key: 'stack', className: 'stack'}, 'Stack: ' + player.stackSize),
+        e('div', {
+            key: 'name',
+            className: 'name',
+        }, player.name + (isPlayerAction ? ' is under the gun!' : '')),
+        e('div', {key: 'stack', className: 'stack'}, stackSizeText),
         // Hand-specific info.
         e(CardList, {key: 'cards', cards: playerState.cards}),
         e('div', {key: 'bet', className: 'betSize'}, betSizeText),
@@ -240,18 +254,14 @@ function PlayerPanel(props) {
 // to place a bet, and also renders his/her cards. It also gives words of
 // encouragement.
 function LoggedInPlayerPanel(props) {
+    var isPlayerAction = props.ui.playerId === props.currentHand.actionPlayerId;
     return e('div', null, [
             e(SpecialMessage, {key: 'message', message: 'You are a real BBQ with that hand!'}),
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
-            e(FoldButton,
-                Object.assign({key: 'fold', events: props.events, ui: props.ui},
-                    findPlayer(props.currentHand.playerStates, props.playerViewId))
-                ),
-            e(Bet, Object.assign({key: 'bet', ui: props.ui}, props)),
-            e(SendActionButton, {
-                key: 'send',
-                ui: props.ui,
-                events: props.events})]);
+            (isPlayerAction ?
+                e(PlayerControls, Object.assign({key: 'actions'}, props)) :
+                e('div', {key: 'not-your-action'}, 'It\'s not your action.')),
+    ]);
 }
 
 function ErrorModal(props) {
@@ -292,6 +302,21 @@ class App extends React.Component {
 
     // This will re-render the whole app when the game state changes.
     componentDidMount() { this.props.events.on('update', this.forceUpdate); }
+}
+
+// The components needed to send an action.
+function PlayerControls(props) {
+    return e('div', {className: 'controls'}, [
+            e(FoldButton,
+                Object.assign({key: 'fold', events: props.events, ui: props.ui},
+                    findPlayer(props.currentHand.playerStates, props.playerViewId))
+                ),
+            e(Bet, Object.assign({key: 'bet', ui: props.ui}, props)),
+            e(SendActionButton, {
+                key: 'send',
+                ui: props.ui,
+                currentHand: props.currentHand,
+                events: props.events})]);
 }
 
 function SendActionButton(props) {
