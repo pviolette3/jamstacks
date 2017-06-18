@@ -39,4 +39,12 @@ message GameState {
         OGRE = 2;
     }
     Status status = 6;
+
+    message HandResult {
+        Hand winning_hand = 1;
+        string winning_playerid = 2;
+    }
+
+    // If status == OGRE, this will have who won the hand etc.
+    HandResult result = 7;
 }

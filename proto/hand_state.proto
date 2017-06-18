@@ -58,20 +58,21 @@ message HandState {
         // The cards revealed so far.
         CardViewList cards = 2;
     }
+    Board board = 3;
 
     // The player ids of the dealer, small blind, and big blind. Small blind
     // typically follows dealer in play, and big blind typically follows small
     // blind in play -- but when there are two players, the dealer is also the
     // small blind.
-    string dealer_id = 3;
-    string small_blind_id = 4;
-    string big_blind_id = 5;
+    string dealer_id = 4;
+    string small_blind_id = 5;
+    string big_blind_id = 6;
 
     // The player whose action it is.
-    string action_player_id = 6;
+    string action_player_id = 7;
 
     // The states of the players in the hand. One per player, even if the
     // player is not active.
     // Required.
-    repeated PlayerState player_states = 7;
+    repeated PlayerState player_states = 8;
 }

@@ -10,15 +10,17 @@
               'of React.JS -- sorry no jamz for you!!');
     }
     </script>
-    <script src="./freezer.js"></script>
-    <script src="./react.js"></script>
-    <script src="./react-dom.js"></script>
+    <script src="./lib/protobuf.js"></script>
+    <script src="./proto/jam.proto.js"></script>
+    <script src="./lib/freezer.js"></script>
+    <script src="./lib/react.js"></script>
+    <script src="./lib/react-dom.js"></script>
     <script src="./jam.js"></script>
     <style>
-    .test-pane {
-        margin: 20px;
-        border: 1px solid black;
-    }
+        .test-pane {
+            margin: 20px;
+            border: 1px solid black;
+        }
     </style>
 </head>
 <body>
@@ -38,11 +40,7 @@
                 freezer.on('update', function() { me.forceUpdate(); });
             }
             render() {
-                var props = {state: freezer.get()};
-                if (getProps !== undefined) {
-                    props = Object.assign(props, getProps(props.state));
-                }
-                return React.createElement(nodeType, props);
+                return React.createElement(nodeType, freezer.get());
             }
         }
         return _App;
@@ -50,142 +48,73 @@
 </script>
 <script type="text/javascript">
     ReactDOM.render(
-        React.createElement(Card, {rank: 'Queen', suit: 'Hearts'}),
+        React.createElement(Card, {rank: 'QUEEN', suit: 'HEARTS'}),
         document.getElementById('card'));
 </script>
 <script type="text/javascript">
     ReactDOM.render(
         React.createElement(CardList, {cards: [
-            {rank: 'Queen', suit: 'Hearts'},
-            {rank: 'King', suit: 'Spades'},
-            {rank: '2', suit: 'Diamonds'}]}),
+            {rank: 'QUEEN', suit: 'HEARTS'},
+            {rank: 'KING', suit: 'SPADES'},
+            {rank: 'TWO', suit: 'DIAMONDS'}]}),
         document.getElementById('card-list'));
 </script>
 <script type="text/javascript">
-    (function() {
-        var freezer = new Freezer({
-            // State for the UI.
-            ui: {
-                // The bet of the player. This can be sent when playerIdView ==
-                // currentPlayer. The UI renders as if the player had put this
-                // amount in the pot.
-                bet: {
-                    size: 15
-                    type: "RAISE"
-                },
-                playerId: 42
-            },
-            hand: {
-                // What is the ID of the game.
-                gameId: "90180"
-                // What is the ID of this hand, for the game.
-                handId: 4,
-
-                // The player that this view is rendered for. Should equal
-                // ui.playerId.
-                playerIdView: 42,
-
-                // The next player's action.
-                turn: {
-                    dealerPlayerId: 42,
-                    actionSequence: [10, 42, 20],
-                    currentPlayer: {id: 42},
-                }
-
-                // The current pot.
-                pot: {
-                    previousBet: 2,
-                    size: 30
-
-                    // TODO side pots.
-                    sidePots: []
-                }
-
-                // Street of the hand. PRE_FLOP, FLOP, TURN, RIVER, OGRE.
-                street: "PRE_FLOP"
-
-                // The Board.
-                board: {
-                    // These cards are hidden to all users until.
-                    cards: [{hidden: true}, {hidden: true}, {hidden: true},
-                            {hidden: true}, {hidden: true}],
-                }
-                // Read-only view of the state, rendered for the player view.
-                players: [
-                    {playerId: 10, state: {
-                        // Players who aren't the current player have cards
-                        // rendered to be "hidden".
-                        cards: [{hidden: true}, {hidden: true}],
-                        folded: false,
-                        amountInPot: 14,
-                    }},
-                    {playerId: 20, state: {
-                        cards: [{hidden: true}, {hidden: true}],
-                        folded: false,
-                        amountInPot: 30,
-                    }},
-                    {playerId: 42, state: {
-                        cards: [{rank: 'Queen', suit: 'Hearts'}, {rank: 'Queen', suit: 'Spades'}],
-                        folded: false,
-                        amountInPot: 30,
-                    }},
-                ],
-            },
-            players: [{
-                name: 'da Real MVP',
-                id: 10,
-                stack: 100,
-            },{
-                name: 'Got da Nutz',
-                id: 20,
-                stack: 100,
-            },{
-                name: 'Like a Set',
-                id: 42,
-                stack: 100,
-            }],
-        });
-        ReactDOM.render(
-            React.createElement(makeApp(
-                ,
-                freezer,
-                freezer => { return {player: freezer.playerState}; }), null),
-            document.getElementById('panel'));
-    })();
 </script>
 <script type="text/javascript">
     // Test the board -- PRE-FLOP, FLOP, TURN, RIVER
     (function() {
-        var freezer = new Freezer({
-          cards: [{hidden: true}, {hidden: true}, {hidden: true},
-                  {hidden: true}, {hidden: true}],
+        var handStateFreezer = new Freezer({
+            street: 'PRE_FLOP',
+            board: {
+                cards: [{hidden: true}, {hidden: true}, {hidden: true},
+                        {hidden: true}, {hidden: true}],
+            }
         });
         var i = 0;
-        function updateCard(i, frozenState) {
-            frozenState.cards[i].reset({rank: i + 2 + '', suit: 'Clubs'});
+        function updateCard(i, handState) {
         }
+        var err = jam_proto.HandState.verify(
+            jam_proto.HandState.fromObject(handStateFreezer.get()));
+        check(!err, err);
         setInterval(() => {
-            var frozenState = freezer.get();
+            var handState = handStateFreezer.get();
+            var cards = handState.board.cards.transact();
+            var street = null;
             if (i <3/*u*/) {
                 // Flop.
-                updateCard(0, frozenState);
-                updateCard(1, frozenState);
-                updateCard(2, frozenState);
+                cards.splice(
+                    0, 3,
+                    {rank: jam_proto.Card.Rank[3], suit: 'CLUBS'},
+                    {rank: jam_proto.Card.Rank[4], suit: 'CLUBS'},
+                    {rank: jam_proto.Card.Rank[5], suit: 'CLUBS'});
                 i = 3;
-            } else if (i < 5) {
-                // Turn, then river.
-                updateCard(i++, frozenState);
+                street = 'PRE_FLOP';
+            } else if (i  == 3) {
+                cards.splice(i++, 1,
+                    {rank: jam_proto.Card.Rank[6], suit: 'CLUBS'});
+                street = 'FLOP';
+            } else if (i == 4) {
+                cards.splice(i++, 1,
+                    {rank: jam_proto.Card.Rank[7], suit: 'CLUBS'});
+                street = 'RIVER';
             } else {
                 // Reset, for the demo.
-                for (i = 0; i < 5; ++i) {
-                    frozenState.cards[i].reset({hidden: true});
-                }
+                cards.splice(0, 5,
+                            {hidden: true}, {hidden: true}, {hidden: true},
+                            {hidden: true}, {hidden: true});
+                street = 'PRE_FLOP';
                 i = 0;
             }
+            handState.board.cards.run();
+            handStateFreezer.get().set('street', street);
+            var err = jam_proto.HandState.verify(
+                jam_proto.HandState.fromObject(handStateFreezer.get()));
+            check(!err, err);
         }, 1000);
         ReactDOM.render(
             React.createElement(
-            makeApp(Board, freezer),
+            makeApp(Board, handStateFreezer),
             null),
         document.getElementById('board'));
 })();

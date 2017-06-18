@@ -1,22 +1,114 @@
-var e = React.createElement;
+////////// Global exports //////////
+e = React.createElement;
+jam_proto = protobuf.roots.default.jam;
+
 ////////// Utility functions //////////
 function check(condition, message) {
-    if(!condition) throw new Error(message);
+    if (!condition) throw new Error(message);
+}
+check(jam_proto !== undefined, 'The protos were not loaded!');
+
+function findPlayer(players, playerId) {
+    for (var i = 0; i < players.length; ++i) {
+        if (players[i].id === playerId) {
+            return player;
+        }
+    }
+    check(false, 'Player ' + playerId + ' does not exist in ' + players);
 }
 
-////////// DATA functions //////////
-function BuildPlayerView(gameState, playerId) {
-
+////////// Freezer and UI communication //////////
+lastError = null;
+ERROR_CLEARING_TIMEOUT = 1000;
+function clearErrors(freezer) {
+    freezer.get().ui.remove('error');
 }
 
+function uiSetError(freezer, state, message) {
+    state.ui.error.set({message: message});
+    clearTimeout(lastError);
+    lastError = setTimeout(
+        clearErrors.bind(null, freezer), ERROR_CLEARING_TIMEOUT);
+}
+
+function setupEvents(freezer) {
+    freezer.on('update:bet', function(betSize) {
+        var state = freezer.get();
+        var playerId = state.ui.playerId;
+        var player = findPlayer(state.players, playerId);
+        var playerState = findPlayer(state.currentHand.playerStates, playerId);
+        if (betSize > player.stackSize) {
+            uiSetError(freezer, state, 'Bet size of ' + betSize +
+                         ' is bigger than your stack size ' + 
+                         player.stackSize);
+            return;
+        } else if (betSize < state.currentHand.board.pot.currentBet) {
+            uiSetError(
+                freezer,
+                state,
+                'The minimum bet is ' + state.currentHand.board.pot.currentBet);
+        }
+        betSize = Math.round(betSize);
+        // Set .now() in case the user is typing.
+        playerState.set('betSize', betSize).now();
+    });
+}
+
+// Get the Freezer object.
+//
+// Tests can overwrite this function. #dependencyinjection #dictsandstrings
+function getFreezer() {
+    if (__jamFreezer === undefined) {
+        __jamFreezer = new Freezer({});
+        setupEvents(__jamFreezer);
+    }
+    return __jamFreezer;
+}
 
 ////////// StateLESS components //////////
+// In the below functions, all props named "state" come from freezer.js. These
+// props correspond directly to protocol buffers from the server.
+
 // A card. Can be hidden, or reveal a rank + a suit.
 function Card(props) {
     if (props.hidden) {
         return e('div', {className: 'card'}, '?? of ??');
     }
-    return e('div', {className: 'card'}, props.rank + ' of ' + this.props.suit);
+    function renderRank(rankId) {
+        if (rankId <= 10) {
+            return '' + rankId;
+        }
+        switch (rankId) {
+            case jam_proto.Card.Rank.JACK:
+                return 'J';
+            case jam_proto.Card.Rank.QUEEN:
+                return 'Q';
+            case jam_proto.Card.Rank.KING:
+                return 'K';
+            case jam_proto.Card.Rank.ACE:
+                return 'A';
+            default:
+                check(false, 'Unknown rank: ' + rankId);
+        }
+    }
+
+    function renderSuit(suitId) {
+        switch(suitId) {
+            case jam_proto.Card.Suit.HEARTS:
+                return 'h';
+            case jam_proto.Card.Suit.SPADES:
+                return 's';
+            case jam_proto.Card.Suit.DIAMONDS:
+                return 'd';
+            case jam_proto.Card.Suit.CLUBS:
+                return 'c';
+        }
+        check(false, 'Unknown suit: ' + suitId);
+    }
+    var rankId = jam_proto.Card.Rank[props.rank];
+    var suitId = jam_proto.Card.Suit[props.suit];
+    var cardStr = renderRank(rankId) + renderSuit(suitId);
+    return e('div', {className: 'card'}, cardStr);
 }
 
 // Just a list of cards.
@@ -38,25 +130,9 @@ function SpecialMessage(props) {
 // The board. Renders 5 cards, and displays which street we are on (flop, river,
 // etc.).
 function Board(props) {
-    var cards = props.state.cards;
-    check(cards.length == 5, 'Must have 5 cards on the board: ' + cards);
-    for (var firstHidden = 0;  firstHidden < 5; ++firstHidden) {
-        if (cards[firstHidden].hidden) {
-            break;
-        }
-    }
-    for (var i = firstHidden; i < 5; ++i) {
-        check(
-            cards[i].hidden,
-            'All cards after firstHidden must be hidden: ' + firstHidden);
-    }
-    var street = 'Pre-Flop';
-    if (firstHidden == 3) { street = 'Flop'; }
-    if (firstHidden == 4) { street = 'Turn'; }
-    if (firstHidden == 5) { street = 'River'; }
     return e('div', {className: 'board'}, [
-        e('div', {className: 'street'}, 'Street: ' + street),
-        e(CardList, {cards: props.state.cards, key: 'cards'}),
+        e('div', {className: 'street', key: 'street'}, 'Street: ' + props.street),
+        e(CardList, {cards: props.board.cards, key: 'cards'}),
     ]);
 }
 
@@ -71,7 +147,7 @@ function PlayerPanel(props) {
         e('div', {key: 'name', className: 'name'}, player.name),
         e('div', {key: 'stack', className: 'stack'}, player.stack),
         // Hand-specific info.
-        e(CardList, {key: 'cards', cards: player.cards),
+        e(CardList, {key: 'cards', cards: player.cards}),
         e('div', {key: 'pot', className: 'amountInPot'}, player.amountInPot),
         e('div', {key: 'folded', className: 'folded'}, (
             player.folded ? 'yes' : 'no')),
@@ -90,17 +166,51 @@ function LoggedInPlayerPanel(props) {
     ]);
 }
 
+function ErrorModal(props) {
+    if (!props.error) {
+        return null;
+    }
+    return e('div', {className: 'errorModal'}, props.error);
+}
+
+function GamePending(props) {
+    return e('div', null, 'The game is pending.');
+}
+
+// A component for actually playing the hand (betting, etc).
+function Hand(props) {
+    return e('div', null, 'The hand is going');
+}
+
+function HandEnd(props) {
+    return e('div', null, 'The hand is over.')
+}
+
 ////////// StateFUL Components //////////
+class App extends React.Component {
+    render() {
+        var ui = this.props.ui;
+        var  gameState = this.props.gameState;
+        var modal = e(ErrorModal, {error: ui.error, key: 'error'});
+        if (gameState.status === jam_proto.GameState.Status.PENDING) {
+            return e(GamePending);
+        } else if (gameState.status === jam_proto.GameState.Status.IN_PROGRESS) {
+            return e(Hand, {gameState: gameState});
+        } else if (gameState.status === jame_proto.GameState.Status.OGRE) {
+            return e(HandEnd, {gameState: gameState});
+        }
+        check(false, 'Unrecognized game status: ' + gameState.status);
+    }
+
+    // This will re-render the whole app when the game state changes.
+    componentDidMount() { getFreezer().on('update', this.forceUpdate); }
+}
 
 // UI to get the user's bet. TODO add fun sound effects.
 class Bet extends React.Component {
     render() {
         var state = this.props.state;
         var player = this.props.player;
-        function updateBet(bet) {
-            // Using .now() on the update, in case the user is typing.
-            state.set('bet', Math.max(0, Math.min(player.stack, bet))).now();
-        }
         var handleInputBox = (function(event) {
             var text = event.target.value;
             if (text.length === 0) {
@@ -108,7 +218,7 @@ class Bet extends React.Component {
             }
             var bet = parseInt(text);
             if (!isNaN(bet)) {
-                updateBet(bet);
+                getFreezer().emit('update:bet', bet);
             }
         }).bind(this);
         var placeBetButtons = e('div', {className: 'bet'}, [
