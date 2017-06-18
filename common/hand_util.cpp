@@ -60,10 +60,10 @@ namespace jam {
 
     bool is_straight(jam::Hand const& hand) {
         std::vector<jam::Card> cards = sorted_hand(hand);
-        auto last_rank = Hand_Rank_UNUSED;
+        auto last_rank = Card_Rank_UNUSED;
         bool consecutive = true;
         for (const auto& card : cards) {
-            consecutive &= last_rank == Hand_Rank_UNUSED || card.rank() == last_rank + 1;
+            consecutive &= last_rank == Card_Rank_UNUSED || card.rank() == last_rank + 1;
             last_rank = card.rank();
         }
         if (consecutive) {
@@ -71,7 +71,7 @@ namespace jam {
         }
         // Special case for Ace as first straight card.
         if (cards[4].rank() == Card_Rank_ACE) {
-            last_rank = 1;
+            last_rank = static_cast<Card_Rank>(1);
         } else {
             return false;
         }
