@@ -17,6 +17,15 @@ function findPlayer(players, playerId) {
     check(false, 'Player ' + playerId + ' does not exist in ' + players);
 }
 
+//////////  External communication //////////
+
+// Abstract "class" defining the API.
+function MessageHandler() {}
+MessageHandler.prototype = Object.create({});
+MessageHandler.prototype.sendAction = function(action, callback) {
+    check(false, 'Not implemented.')
+}
+
 ////////// Freezer and UI communication //////////
 lastError = null;
 ERROR_CLEARING_TIMEOUT = 1000;
@@ -32,25 +41,28 @@ function uiSetError(freezer, message) {
         clearErrors.bind(null, freezer), ERROR_CLEARING_TIMEOUT);
 }
 
-function setupEvents(freezer) {
+function setupEvents(freezer, sender) {
     freezer.on('update:bet', function(betSize) {
         var state = freezer.get();
         var playerId = state.ui.playerId;
         var player = findPlayer(state.players, playerId);
         var playerState = findPlayer(state.currentHand.playerStates, playerId);
-        var maxBet = player.stackSize - playerState.amountInPot;
+        betSize = Math.round(betSize);
+        var maxBet = player.stackSize - playerState.amountInPot - playerState.streetBetSize;
         if (betSize > maxBet) {
             uiSetError(freezer, 'Bet of ' + betSize +
                          ' would put more than you have (' + 
                          player.stackSize + ') in the pot.');
             return;
-        } else if (betSize < state.currentHand.board.pot.currentBet) {
+        } else if (playerState.streetBetSize + betSize <
+                   state.currentHand.board.pot.currentBet) {
             uiSetError(
                 freezer,
-                'The minimum bet is ' + state.currentHand.board.pot.currentBet);
+                'You must add at least another ' + (
+                    state.currentHand.board.pot.currentBet
+                    - playerState.streetBetSize));
             return;
         }
-        betSize = Math.round(betSize);
         // Set .now() in case the user is typing.
         playerState.set('betSize', betSize).now();
     });
@@ -59,7 +71,58 @@ function setupEvents(freezer) {
         var state = freezer.get();
         var playerId = state.ui.playerId;
         var playerState = findPlayer(state.currentHand.playerStates, playerId);
-    playerState.set('active', !!active);
+        playerState.set('active', !!active);
+        console.log('Set active ', active);
+    });
+    freezer.on('update:sendAction', function() {
+        console.log('Sending!');
+        var state = freezer.get();
+        var playerId = state.ui.playerId;
+        var player = findPlayer(state.players, playerId);
+        var playerState = findPlayer(state.currentHand.playerStates, playerId);
+        state.ui.set('sending', true);
+        var action = new jam_proto.HandState.PlayerAction();
+        action.playerId = playerId;
+        if (!playerState.active) {
+            action.action = jam_proto.HandState.PlayerAction.Action.FOLD;
+            action.betSize = 0;
+        } else {
+            action.betSize = playerState.betSize;
+            var totalStreetBet = action.betSize + playerState.streetBetSize;
+            var totalBet = totalStreetBet + playerState.amountInPot;
+            if (totalBet > player.stackSize) {
+                uiSetError(
+                    freezer,
+                    'Action would add more money to the pot (' + totalBet +
+                     ') than the user has: ' + player.stackSize);
+                return;
+            }
+            if (totalBet === player.stackSize) {
+                action.action = jam_proto.HandState.PlayerAction.Action.ALL_IN;
+            } else if (totalStreetBet > state.currentHand.board.pot.currentBet) {
+                action.action = jam_proto.HandState.PlayerAction.Action.RAISE;
+            } else if (totalStreetBet === state.currentHand.board.pot.currentBet) {
+                action.action = (
+                    playerState.betSize === 0 ?
+                    jam_proto.HandState.PlayerAction.Action.CHECK :
+                    jam_proto.HandState.PlayerAction.Action.CALL);
+            } else if (totalStreetBet < state.currentHand.board.pot.currentBet) {
+                uiSetError(
+                    freezer,
+                    'Must put at least ' +
+                    state.currentHand.board.pot.currentBet +
+                    ' total in the pot.');
+                return;
+            }
+        }
+        sender.sendAction(action, function(err) {
+            var ui = freezer.get().ui;
+            if (err) {
+                ui.error.set('message', err);
+            } else {
+                ui.set('sending', false);
+            }
+        });
     });
 }
 
@@ -149,12 +212,15 @@ function Board(props) {
 function PlayerPanel(props) {
     var player = findPlayer(props.players, props.playerId);
     var playerState = findPlayer(props.currentHand.playerStates, props.playerId);
-    var amountInPotText = 'Amount in pot: ';
-    if (playerState.betSize) {
-        amountInPotText += (playerState.amountInPot + playerState.betSize) +
-                       ' (' + playerState.amountInPot + ' before bet)';
-    } else {
-        amountInPotText += playerState.amountInPot;
+    var newStreetBetSize = playerState.betSize + playerState.streetBetSize;
+    var amountInPotText = 'Amount in pot: ' + (playerState.amountInPot + playerState.streetBetSize);
+    if (playerState.streetBetSize > 0) {
+        amountInPotText += (' (' + playerState.streetBetSize + ' this street)');
+    }
+    var betSizeText = ('Bet on ' + props.currentHand.street + ': ' +
+                        newStreetBetSize);
+    if (playerState.streetBetSize && playerState.betSize > 0) {
+        betSizeText += ' (' + playerState.streetBetSize + ' this street)';
     }
     return e('div',  {className: 'player'}, [
         // Game-specific info.
@@ -162,6 +228,7 @@ function PlayerPanel(props) {
         e('div', {key: 'stack', className: 'stack'}, 'Stack: ' + player.stackSize),
         // Hand-specific info.
         e(CardList, {key: 'cards', cards: playerState.cards}),
+        e('div', {key: 'bet', className: 'betSize'}, betSizeText),
         e('div', {key: 'pot', className: 'amountInPot'}, amountInPotText),
         e('div', {key: 'folded', className: 'folded'}, (
             'Folded: ' + (playerState.active ? 'no' : 'yes'))),
@@ -177,10 +244,14 @@ function LoggedInPlayerPanel(props) {
             e(SpecialMessage, {key: 'message', message: 'You are a real BBQ with that hand!'}),
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
             e(FoldButton,
-                Object.assign({key: 'fold', events: props.events},
+                Object.assign({key: 'fold', events: props.events, ui: props.ui},
                     findPlayer(props.currentHand.playerStates, props.playerViewId))
                 ),
-            e(Bet, Object.assign({key: 'bet'}, props))]);
+            e(Bet, Object.assign({key: 'bet', ui: props.ui}, props)),
+            e(SendActionButton, {
+                key: 'send',
+                ui: props.ui,
+                events: props.events})]);
 }
 
 function ErrorModal(props) {
@@ -223,8 +294,21 @@ class App extends React.Component {
     componentDidMount() { this.props.events.on('update', this.forceUpdate); }
 }
 
+function SendActionButton(props) {
+    if (props.ui.sending) {
+        return e('div', {className: 'spinner'}, 'Sending...');
+    }
+    function handler(event) {
+        console.log(event.target);
+        props.events.emit('update:sendAction');
+    }
+    return e('button', {
+        className: 'send',
+        onClick: handler}, 'Send Action!');
+}
+
 function FoldButton(props) {
-    function handleChange(event) {
+    function handler(event) {
         props.events.emit('update:active', !event.target.checked);
     }
     return e('div', {className: 'checkbox'}, [
@@ -234,7 +318,8 @@ function FoldButton(props) {
                 className: 'fold-button',
                 name: 'fold',
                 type: 'checkbox',
-                onChange: handleChange,
+                disabled: props.ui.sending,
+                onChange: handler,
                 checked: !props.active})]);
 }
 
@@ -246,30 +331,35 @@ function Bet(props) {
     function tryUpdateBet(bet) {
         props.events.emit('update:bet', bet);
     }
-    function handleInputBox(event) {
+    function handler(event) {
         var text = event.target.value;
         var bet = text.length === 0 ? 0 : parseInt(text);
         if (!isNaN(bet)) {
             tryUpdateBet(bet);
         }
     };
+    // TODO make these configurable / relative to the pot etc / do the validation
+    // here.
     var placeBetButtons = e('div', {className: 'bet'}, [
             e('span', {key: 'current-bet'}, 'Bet: ' + playerState.betSize),
             e('span', {className: 'betAmount', key: 'update-buttons'},
                 [e('button', {
                     className: 'betButton',
                     key: '+2',
+                    disabled: props.ui.sending,
                     onClick: tryUpdateBet.bind(null, playerState.betSize + 2)}, '+2'),
                 e('button', {
                     className: 'betButton',
+                    disabled: props.ui.sending,
                     key: '+4',
                     onClick: tryUpdateBet.bind(null, playerState.betSize + 4)}, '+4'),
                 e('button', {
                     className: 'betButton',
+                    disabled: props.ui.sending,
                     style: {background: 'red', color: 'green'},
                     key: 'all_in',
-                    onClick: tryUpdateBet.bind(null, player.stackSize - playerState.amountInPot)}, 'JAM!!!'),
-                e('input', {onChange: handleInputBox, value: playerState.betSize, key: 'input'})])
+                    onClick: tryUpdateBet.bind(null, player.stackSize - playerState.amountInPot - playerState.streetBetSize)}, 'JAM'),
+                e('input', {onChange: handler, disabled: props.ui.sending, value: playerState.betSize, key: 'input'})])
             ]);
     return playerState.active ? placeBetButtons : null;
 }

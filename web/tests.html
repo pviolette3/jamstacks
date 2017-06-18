@@ -31,6 +31,17 @@
     <div id="board" class="test-pane"></div>
 </body>
 <script type="text/javascript">
+    // Sends events with a second of delay.
+    function TestHandler() {}
+    TestHandler.prototype = Object.create(MessageHandler.prototype);
+    TestHandler.prototype.sendAction = function(action, callback) {
+        var err = jam_proto.HandState.PlayerAction.verify(action);
+        check(!err, err);
+        setTimeout(function() {
+            console.log('The action was received: ', action);
+            callback(/* err = */ null);
+        }, 1000);
+    };
     // A "simple" function that updates the subcomponent when the freezer
     // object is updated.
     function makeApp(nodeType, freezer, getProps) {
@@ -63,12 +74,13 @@
 </script>
 <script type="text/javascript">
 var loggedInPlayerFreezer = new Freezer({
-    ui: { playerId: '8', error: {} },
+    ui: { playerId: '8', error: {}, sending: false},
     playerViewId: '8',
     currentHand: {
+        street: 'FLOP',
         playerViewId: '8',
         playerStates: [
-            {id: '8', active: true, betSize: 8, amountInPot: 4, cards: [
+            {id: '8', active: true, betSize: 0, streetBetSize: 4, amountInPot: 4, cards: [
                 {rank: 'TWO', suit: 'CLUBS'}, {rank: 'SEVEN', suit: 'SPADES'}]},
         ],
         board: {
@@ -80,7 +92,7 @@ var loggedInPlayerFreezer = new Freezer({
     ],
 });
 loggedInPlayerFreezer.on('update', function(state) { if (state.error) { alert(state.error); }});
-setupEvents(loggedInPlayerFreezer);
+setupEvents(loggedInPlayerFreezer, new TestHandler());
 ReactDOM.render(
     e(makeApp(LoggedInPlayerPanel, loggedInPlayerFreezer)),
     document.getElementById('logged-in-panel'));
