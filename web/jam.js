@@ -54,6 +54,13 @@ function setupEvents(freezer) {
         // Set .now() in case the user is typing.
         playerState.set('betSize', betSize).now();
     });
+
+    freezer.on('update:active', function(active) {
+        var state = freezer.get();
+        var playerId = state.ui.playerId;
+        var playerState = findPlayer(state.currentHand.playerStates, playerId);
+    playerState.set('active', !!active);
+    });
 }
 
 ////////// StateLESS components //////////
@@ -169,8 +176,11 @@ function LoggedInPlayerPanel(props) {
     return e('div', null, [
             e(SpecialMessage, {key: 'message', message: 'You are a real BBQ with that hand!'}),
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
-            e(Bet, Object.assign({key: 'bet'}, props)),
-    ]);
+            e(FoldButton,
+                Object.assign({key: 'fold', events: props.events},
+                    findPlayer(props.currentHand.playerStates, props.playerViewId))
+                ),
+            e(Bet, Object.assign({key: 'bet'}, props))]);
 }
 
 function ErrorModal(props) {
@@ -211,6 +221,21 @@ class App extends React.Component {
 
     // This will re-render the whole app when the game state changes.
     componentDidMount() { this.props.events.on('update', this.forceUpdate); }
+}
+
+function FoldButton(props) {
+    function handleChange(event) {
+        props.events.emit('update:active', !event.target.checked);
+    }
+    return e('div', {className: 'checkbox'}, [
+            e('span', {key: 'label', className: 'checkbox-label'}, 'Fold: '),
+            e('input', {
+                key: 'checkbox',
+                className: 'fold-button',
+                name: 'fold',
+                type: 'checkbox',
+                onChange: handleChange,
+                checked: !props.active})]);
 }
 
 // UI to get the user's bet, based on the GameState. TODO add fun sound effects.
