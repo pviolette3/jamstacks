@@ -8,7 +8,7 @@ message HandState {
     // The id of the player viewing the hand state. If set, hides cards the
     // player can't see. If not set (ie, on the server) all cards will be shown.
     // Optional.
-    optional string player_view_id = 1;
+    string player_view_id = 1;
 
     // The street of the hand.
     enum Street {
@@ -19,34 +19,53 @@ message HandState {
     }
 
     // The street the hand is currently on.
-    optional Street street = 2;
+    Street street = 2;
 
     // The state of the player in the hand.
     message PlayerState {
         // The player's id. Required.
-        optional string id = 1;
+        string id = 1;
 
-        // The amount in the player's stack. Required.
-        optional int32 stack_size = 2;
+        // The amount the player has bet. Required.
+        // The total stack size is stored within the game.
+        int32 bet_size = 2;
 
         // The index in the seating arrangement. 0 = dealer. Required.
-        optional int32 seat_index = 3;
+        int32 seat_index = 3;
 
         // True if this player is in the hand, false otherwise. Required.
-        optional boolean active = 4;
+        bool active = 4;
 
         // Two cards in the player's hand. Censored on the client to `hidden`
         // if id != view_id; Uncensored on the server.
-        optional CardViewList cards = 5;
+        CardViewList cards = 5;
+    }
+
+    message Pot {
+        // The current bet.
+        int32 current_bet = 1;
+
+        // How much is in the pot.
+        int32 size = 2;
+
+        // TODO: Side pots.
+    }
+
+    message Board {
+        // The betting pot.
+        Pot pot = 1;
+
+        // The cards revealed so far.
+        CardViewList cards = 2;
     }
 
     // The player ids of the dealer, small blind, and big blind. Small blind
     // typically follows dealer in play, and big blind typically follows small
     // blind in play -- but when there are two players, the dealer is also the
     // small blind.
-    optional string dealer_id = 3;
-    optional string small_blind_id = 4;
-    optional string big_blind_id = 5;
+    string dealer_id = 3;
+    string small_blind_id = 4;
+    string big_blind_id = 5;
 
     // The states of the players in the hand. One per player, even if the
     // player is not active.
