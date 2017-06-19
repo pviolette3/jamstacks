@@ -15,6 +15,21 @@
     padding: 2px;
 }
 
+.players .player {
+    float: left;
+    margin: 10px 0 10px 0;
+    width: 25%;
+}
+
+.players .player.player {
+}
+
+.players .clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
 .bet input.bet-input {
     width: 30px;
 }

@@ -47,7 +47,7 @@
             playerState.streetBetSize += playerState.betSize;
             playerState.betSize = 0;
             state.currentHand.playerStates.splice(0, 1, playerState);
-            freezer.get().currentHand.set('actionPlayerId', '9109410');
+            freezer.get().currentHand.set('actionPlayerId', '9');
             callback(/* err = */ null);
         }, 10);
     };
@@ -70,15 +70,16 @@
 </script>
 <script type="text/javascript">
     ReactDOM.render(
-        React.createElement(Card, {rank: 'QUEEN', suit: 'HEARTS'}),
+        React.createElement(Card, {rank: 'KING', suit: 'CLUBS'}),
         document.getElementById('card'));
 </script>
 <script type="text/javascript">
     ReactDOM.render(
         React.createElement(CardList, {cards: [
-            {rank: 'QUEEN', suit: 'HEARTS'},
-            {rank: 'KING', suit: 'SPADES'},
-            {rank: 'TWO', suit: 'DIAMONDS'}]}),
+            {rank: 'ACE', suit: 'HEARTS'},
+            {rank: 'SEVEN', suit: 'HEARTS'},
+            {rank: 'KING', suit: 'HEARTS'},
+            {rank: 'KING', suit: 'CLUBS'}]}),
         document.getElementById('card-list'));
 </script>
 <script type="text/javascript">
@@ -90,21 +91,33 @@ var loggedInPlayerFreezer = new Freezer({
         actionPlayerId: '8',
         playerViewId: '8',
         playerStates: [
-            {id: '8', active: true, betSize: 0, streetBetSize: 4, amountInPot: 4, cards: [
+            {id: '8', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
                 {rank: 'TWO', suit: 'CLUBS'}, {rank: 'SEVEN', suit: 'SPADES'}]},
+            {id: '9', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
+                {hidden: true}, {hidden: true}]},
+            {id: '10', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
+                {hidden: true}, {hidden: true}]},
+            {id: '11', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
+                {hidden: true}, {hidden: true}]},
         ],
+        dealerId: '9',
+        smallBlindId: '10',
+        bigBlindId: '8',
         board: {
             pot: { size: 24, currentBet: 4},
         }
     },
     players: [
         {id: '8', stackSize: 50, name: 'Patrick'},
+        {id: '9', stackSize: 50, name: 'Nick'},
+        {id: '10', stackSize: 50, name: 'Daniel'},
+        {id: '11', stackSize: 50, name: 'Walker'},
     ],
 });
 loggedInPlayerFreezer.on('update', function(state) { if (state.error) { alert(state.error); }});
 setupEvents(loggedInPlayerFreezer, new TestHandler(loggedInPlayerFreezer));
 ReactDOM.render(
-    e(makeApp(LoggedInPlayerPanel, loggedInPlayerFreezer)),
+    e(makeApp(Players, loggedInPlayerFreezer)),
     document.getElementById('logged-in-panel'));
 </script>
 <script type="text/javascript">

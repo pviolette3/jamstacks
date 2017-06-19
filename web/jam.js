@@ -132,44 +132,62 @@ function setupEvents(freezer, sender) {
 
 // A card. Can be hidden, or reveal a rank + a suit.
 function Card(props) {
+    var style = {};
+    var kCardAspectRatio = (1260 / 4) / (2925 / 13);
+    style.display = 'inline-block';
+    style.width = 100;
+    style.height = kCardAspectRatio * style.width;
+    style.borderRadius = style.width / 20;
+    style.margin = style.width / 20;
     if (props.hidden) {
-        return e('div', {className: 'card'}, '?? of ??');
-    }
-    function renderRank(rankId) {
-        if (rankId <= 10) {
-            return '' + rankId;
+        // Just apply a simple gradient.
+        // 4 sets of triangles to form a checkerboard.
+        var checkerWidth = style.width / 20;
+        var checkerMargin = checkerWidth / 2;
+        style.backgroundImage = (
+            'linear-gradient(45deg, #808080 25%, transparent 25%),' +
+            'linear-gradient(-45deg, #808080 25%, transparent 25%),' +
+            'linear-gradient(45deg, transparent 75%, #808080 75%),' +
+            'linear-gradient(-45deg, transparent 75%, #808080 75%)');
+        style.backgroundSize = checkerWidth + 'px ' + checkerWidth + 'px';
+        style.backgroundPosition = '0 0, 0 ' + checkerMargin + 'px,'  +
+                                   ' ' + checkerMargin + 'px ' + -checkerMargin
+                                   + 'px, ' + -checkerMargin + 'px 0px';
+    } else {
+        // Sprites go: A 2 3 4 .. K (left to right).
+        // And then go: H S D C (top to bottom).
+        // Sprites are
+        var rankId = jam_proto.Card.Rank[props.rank];
+        if (rankId == jam_proto.Card.Rank.ACE) {
+            rankId = 1;
         }
-        switch (rankId) {
-            case jam_proto.Card.Rank.JACK:
-                return 'J';
-            case jam_proto.Card.Rank.QUEEN:
-                return 'Q';
-            case jam_proto.Card.Rank.KING:
-                return 'K';
-            case jam_proto.Card.Rank.ACE:
-                return 'A';
-            default:
-                check(false, 'Unknown rank: ' + rankId);
-        }
-    }
-
-    function renderSuit(suitId) {
-        switch(suitId) {
+        var rankIndex = rankId - 1;  // 0-index.
+        var suitId = jam_proto.Card.Suit[props.suit];
+        var suitIndex = -1;
+        switch (suitId) {
             case jam_proto.Card.Suit.HEARTS:
-                return 'h';
+                suitIndex = 0;
+                break;
             case jam_proto.Card.Suit.SPADES:
-                return 's';
+                suitIndex = 1;
+                break;
             case jam_proto.Card.Suit.DIAMONDS:
-                return 'd';
+                suitIndex = 2;
+                break;
             case jam_proto.Card.Suit.CLUBS:
-                return 'c';
+                suitIndex = 3;
+                break;
         }
-        check(false, 'Unknown suit: ' + suitId);
+        check(suitIndex != -1, 'Unknown suit ' + suitIndex);
+
+        // 
+        var leftPos = (100.0 / 13) * (rankIndex + rankIndex / 12) + '%';
+        var topPos = (100.0 / 4) * (suitIndex + suitIndex / 3) + '%';
+        style.background = 'url(assets/card_sprites.jpg) no-repeat 0 0';
+        style.backgroundSize = '1300% 400%';
+        style.backgroundPosition = leftPos + ' ' + topPos;
     }
-    var rankId = jam_proto.Card.Rank[props.rank];
-    var suitId = jam_proto.Card.Suit[props.suit];
-    var cardStr = renderRank(rankId) + renderSuit(suitId);
-    return e('div', {className: 'card'}, cardStr);
+    return e('div', { style: style });
 }
 
 // Just a list of cards.
@@ -204,6 +222,25 @@ function Board(props) {
         e(Pot, Object.assign({key: 'pot'}, props.pot)),
         e(CardList, {cards: props.board.cards, key: 'cards'}),
     ]);
+}
+
+// Renders all players in the game.
+function Players(props) {
+    var loggedInPlayerId = props.ui.playerId;
+    var els = [];
+    for (var i = 0; i < props.players.length; ++i) {
+        var subprops = Object.assign(
+            {key: 'player-' + props.players[i].id,
+            playerId: props.players[i].id},
+            props);
+        if (props.players[i].id === loggedInPlayerId) {
+            els.push(e(LoggedInPlayerPanel, subprops));
+        } else {
+            els.push(e(PlayerPanel, subprops));
+        }
+    }
+    els.push(e('div', {className: 'clearfix', key: 'clearfix'}));
+    return e('div', {className: 'players'}, els);
 }
 
 // The player's information about the current hand (cards + bet in the pot).
@@ -264,8 +301,9 @@ function PlayerPanel(props) {
 // encouragement.
 function LoggedInPlayerPanel(props) {
     var isPlayerAction = props.ui.playerId === props.currentHand.actionPlayerId;
-    return e('div', null, [
+    return e('div', {className: 'player'}, [
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
+            e('div', {className: 'clearfix'}),
             (isPlayerAction ?
                 e(PlayerControls, Object.assign({key: 'actions'}, props)) : null),
     ]);
