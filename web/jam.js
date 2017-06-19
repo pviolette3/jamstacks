@@ -26,6 +26,10 @@ MessageHandler.prototype.sendAction = function(action, callback) {
     check(false, 'Not implemented.')
 }
 
+MessageHandler.prototype.sendReadyNextHand = function(callback) {
+    check(false, 'Not implemented.')
+}
+
 ////////// Freezer and UI communication //////////
 lastError = null;
 ERROR_CLEARING_TIMEOUT = 1000;
@@ -124,13 +128,25 @@ function setupEvents(freezer, sender) {
             }
         });
     });
+    freezer.on('update:next-hand', function() {
+        var state = freezer.get();
+        state.ui.set('sending', true);
+        sender.sendReadyNextHand(function(err, data) {
+            var state = freezer.get();
+            state.ui.set('sending', false);
+            if (err) {
+                state.ui.error.set('message', err);
+            }
+        });
+    });
 }
 
 ////////// StateLESS components //////////
 // In the below functions, all props named "state" come from freezer.js. These
 // props correspond directly to protocol buffers from the server.
 
-// A card. Can be hidden, or reveal a rank + a suit.
+// A card. Can be hidden, or reveal a rank + a suit. Internally wraps a sprite
+// of cards.
 function Card(props) {
     var style = {};
     var kCardAspectRatio = (1260 / 4) / (2925 / 13);
@@ -261,6 +277,15 @@ function PlayerPanel(props) {
     }
     var stackSizeText = 'Stack: ' + player.stackSize;
     var playerTotalInPot = playerState.amountInPot + newStreetBetSize;
+    var specialPosition = null;
+    var specialPositionProps = {className: 'special-position', key: 'special'};
+    if (props.currentHand.dealerId === props.playerId) {
+        specialPosition = e('span', specialPositionProps, '(D)');
+    } else if (props.currentHand.smallBlindId === props.playerId) {
+        specialPosition = e('span', specialPositionProps, '(SB)');
+    } else if (props.currentHand.bigBlindId === props.playerId) {
+        specialPosition = e('span', specialPositionProps, '(BB)');
+    }
     return e('div', {
         className: classNames({
             player: props.ui.playerId !== props.playerId,
@@ -269,11 +294,16 @@ function PlayerPanel(props) {
         // Game-specific info.
         e('div', {
             key: 'name',
-            className: 'name',
-        }, player.name),
+            className: 'player-title',
+        }, [
+            e('span', {className: 'name', key: 'name'}, player.name),
+            specialPosition,
+            ]),
         e('img', {
             src: player.imageUrl || './assets/bbq.jpg',
-            className: classNames({action: isPlayerAction, 'profile-pic': true}),
+            className: classNames({
+                action: isPlayerAction,
+                'profile-pic': true}),
             key: 'img',
         }),
         e('div', {
@@ -291,10 +321,7 @@ function PlayerPanel(props) {
                         className: 'street-bet-size'},
                         '(street: ' + newStreetBetSize + ')') : null),
             ]),
-        // Hand-specific info.
-        e('div', {key: 'cards', className: 'cards'}, [
-            e('div', {key: '0'}, 'Cards'),
-            e(CardList, {key: 'cards', cards: playerState.cards}),])
+        e(CardList, {key: 'cards', cards: playerState.cards}),
     ]);
 }
 
@@ -306,7 +333,7 @@ function LoggedInPlayerPanel(props) {
     var isPlayerAction = props.ui.playerId === props.currentHand.actionPlayerId;
     return e('div', {className: 'player'}, [
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
-            e('div', {className: 'clearfix'}),
+            e('div', {className: 'clearfix', key: 'clearfix'}),
             (isPlayerAction ?
                 e(PlayerControls, Object.assign({key: 'actions'}, props)) : null),
     ]);
@@ -317,14 +344,43 @@ function GamePending(props) {
 }
 
 function HandResult(props) {
-    return e('div',  null, 'Game over.');
+    var player = findPlayer(
+        props.players,
+        props.currentHand.result.winningPlayerId);
+    function handler() {
+        console.log('Clicked again.');
+        props.events.emit('update:next-hand');
+    }
+    var winningHand = props.currentHand.result.winningHand;
+    var playerWon = player.id === props.ui.playerId;
+    var resultText = (playerWon ? 'You' : player.name) + ' won with a ' + winningHand.type;
+    return e('div',  {className: 'handResult'}, [
+            e('div', {key: 'winner', className: 'winner-msg'}, resultText),
+            e('img', {
+                key: 'img',
+                src: player.imageUri || './assets/bbq.jpg',
+                className: 'winning-bbq'}),
+            (!playerWon ?
+                e('div', {
+                    key: 'msg',
+                    className: 'ev-slave'},
+                    'Keep being a slave to the EV.') : null),
+            e(CardList, {
+                key: 'cards',
+                cards: winningHand.cards}),
+            e('button', {
+                key: 'button',
+                disabled: props.ui.sending,
+                onClick: handler},
+                'Put me in again, coach!'),
+        ]);
 }
 
 
 // A component for actually playing the hand (betting, etc).
 function Hand(props) {
     var els = [];
-    if (props.currentHand.result) {
+    if (!!props.currentHand.result) {
         els.push(e(HandResult, props));
     }
     return e('div', null, 'The hand is going');
@@ -427,7 +483,6 @@ function Bet(props) {
                 [e('button', {
                     className: 'betButton',
                     disabled: props.ui.sending,
-                    style: {background: 'red', color: 'green'},
                     key: 'all_in',
                     onClick: tryUpdateBet.bind(null, player.stackSize - playerState.amountInPot - playerState.streetBetSize)}, 'JAM'),
                 ])
