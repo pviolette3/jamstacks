@@ -21,10 +21,7 @@
     width: 25%;
 }
 
-.players .player.player {
-}
-
-.players .clearfix::after {
+.clearfix::after {
     content: "";
     clear: both;
     display: table;

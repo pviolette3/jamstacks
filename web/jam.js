@@ -239,8 +239,7 @@ function Players(props) {
             els.push(e(PlayerPanel, subprops));
         }
     }
-    els.push(e('div', {className: 'clearfix', key: 'clearfix'}));
-    return e('div', {className: 'players'}, els);
+    return e('div', {className: 'players clearfix'}, els);
 }
 
 // The player's information about the current hand (cards + bet in the pot).
@@ -262,7 +261,11 @@ function PlayerPanel(props) {
     }
     var stackSizeText = 'Stack: ' + player.stackSize;
     var playerTotalInPot = playerState.amountInPot + newStreetBetSize;
-    return e('div',  {className: 'player'}, [
+    return e('div', {
+        className: classNames({
+            player: props.ui.playerId !== props.playerId,
+            loggedInPlayer: props.ui.playerId === props.playerId}),
+        }, [
         // Game-specific info.
         e('div', {
             key: 'name',
