@@ -1,6 +1,9 @@
 # Downloaded code.
 protobuf
-googletest
+
+# Prebuilt
+prebuilt/gflags
+prebuilt/protobuf
 
 # Binary
 bin
@@ -8,4 +11,5 @@ bin
 
 # Generated code.
 web/proto
-
+.buckd
+buck-out
