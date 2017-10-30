@@ -13,3 +13,5 @@ bin
 web/proto
 .buckd
 buck-out
+*.swp*
+js/node_modules/*
