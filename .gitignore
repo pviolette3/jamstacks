@@ -9,3 +9,5 @@ bin
 # Generated code.
 web/proto
 
+*.swp*
+js/node_modules/*

@@ -15,3 +15,15 @@ git clone -b 'v2017.10.01.01' --single-branch --depth=1 https://github.com/faceb
 cd buck
 ant
 ./bin/buck --help
+
+# Install BOOST
+https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz
+tar xzvf boost_1_65_1.tar.gz
+cd boost_1_65_1
+./bootstrap.sh
+./b2
+
+# Install BEAST
+git clone -b 'v124' --single-branch --depth=1  https://github.com/boostorg/beast.git
+
+# It still doesn't build -- give up..?
