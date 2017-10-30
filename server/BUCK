@@ -2,4 +2,8 @@
 cxx_binary(
   name = "test",
   srcs = ["test.cpp"],
+  deps = [
+    "//prebuilt:gflags",
+    "//proto:protos",
+  ],
 )

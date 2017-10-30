@@ -1,14 +1,36 @@
-export_file(
-  name = "all_protos",
-  src = "./",
-  out = "all_protos",
-)
+PROTO_FILES = glob(['*.proto'])
 
 genrule(
-  name = "protos",
-  srcs = [
-    ":all_protos",
-  ],
-  bash = "protoc --proto_path=\"${SRCDIR}/all_protos\" --cpp_out=\"${OUT}\" ${SRCDIR}/all_protos/*.proto",
-  out = "../",
+  name = "gen-protos",
+  srcs = PROTO_FILES,
+  bash = "mkdir ${OUT} && protoc --proto_path=\"${SRCDIR}\" --cpp_out=\"${OUT}\" ${SRCDIR}/*.proto",
+  out = "generated",
 )
+
+PROTO_CC_RULES = [':' +fname.replace('.proto', '.pb.cc') for fname in PROTO_FILES]
+PROTO_H_RULES = [':' + fname.replace('.proto', '.pb.h') for fname in PROTO_FILES]
+
+for proto_file in glob(["*.proto"]):
+  proto_name = proto_file.split('.')[0]
+  proto_h = proto_name + '.pb.h'
+  proto_cc = proto_name + '.pb.cc'
+  genrule(
+    name = proto_h,
+    cmd = 'cp $(location :gen-protos)/' + proto_h + ' $OUT',
+    out = proto_h,
+  )
+  genrule(
+    name = proto_cc,
+    cmd = 'cp $(location :gen-protos)/' + proto_cc + ' $OUT',
+    out = proto_cc,
+  )
+
+cxx_library(
+  name = "protos",
+  srcs = PROTO_CC_RULES,
+  deps = ["//prebuilt:protobuf"],
+  exported_headers = PROTO_H_RULES,
+  header_namespace = "",
+  visibility = ['PUBLIC'],
+)
+

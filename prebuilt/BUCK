@@ -1,4 +1,23 @@
 prebuilt_cxx_library(
- name = "gflags",
- header_dirs = [""],
+ name = 'gflags',
+ header_namespace = 'gflags',
+ exported_headers = subdir_glob([
+     ('gflags/include', '**/*.h'),
+ ]),
+ lib_name = 'gflags',
+ lib_dir = 'gflags/lib',
+ visibility = ['PUBLIC'],
+)
+
+prebuilt_cxx_library(
+ name = 'protobuf',
+ header_namespace = 'protobuf',
+ exported_headers = subdir_glob([
+     ('protobuf/include', '**/*.h'),
+ ]),
+ lib_name = 'protobuf',
+ lib_dir = 'protobuf/lib',
+ visibility = ['PUBLIC'],
+)
+
 

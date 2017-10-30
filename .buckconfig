@@ -3,3 +3,5 @@
   cxx = /usr/bin/clang++
   cxxppflags = -Wall
   cxxflags = -Wall -std=c++14
+[project]
+  read_only_paths = "prebuilt/"
