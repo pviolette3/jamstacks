@@ -1,0 +1,36 @@
+.player img {
+    width: 150px;
+    height: auto;
+}
+
+.player img.action {
+    border: 5px solid red;
+}
+
+.player .stack-size {
+    font-weight: bold;
+}
+
+.player span {
+    padding: 2px;
+}
+
+.player span.name {
+    font-size: 2em;
+}
+
+.players .player {
+    float: left;
+    margin: 10px 0 10px 0;
+    width: 25%;
+}
+
+.clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+.bet input.bet-input {
+    width: 30px;
+}

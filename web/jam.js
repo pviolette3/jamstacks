@@ -26,6 +26,10 @@ MessageHandler.prototype.sendAction = function(action, callback) {
     check(false, 'Not implemented.')
 }
 
+MessageHandler.prototype.sendReadyNextHand = function(callback) {
+    check(false, 'Not implemented.')
+}
+
 ////////// Freezer and UI communication //////////
 lastError = null;
 ERROR_CLEARING_TIMEOUT = 1000;
@@ -124,52 +128,82 @@ function setupEvents(freezer, sender) {
             }
         });
     });
+    freezer.on('update:next-hand', function() {
+        var state = freezer.get();
+        state.ui.set('sending', true);
+        sender.sendReadyNextHand(function(err, data) {
+            var state = freezer.get();
+            state.ui.set('sending', false);
+            if (err) {
+                state.ui.error.set('message', err);
+            }
+        });
+    });
 }
 
 ////////// StateLESS components //////////
 // In the below functions, all props named "state" come from freezer.js. These
 // props correspond directly to protocol buffers from the server.
 
-// A card. Can be hidden, or reveal a rank + a suit.
+// A card. Can be hidden, or reveal a rank + a suit. Internally wraps a sprite
+// of cards.
 function Card(props) {
+    var style = {};
+    var kCardAspectRatio = (1260 / 4) / (2925 / 13);
+    style.display = 'inline-block';
+    style.width = 100;
+    style.height = kCardAspectRatio * style.width;
+    style.borderRadius = style.width / 20;
+    style.margin = style.width / 20;
     if (props.hidden) {
-        return e('div', {className: 'card'}, '?? of ??');
-    }
-    function renderRank(rankId) {
-        if (rankId <= 10) {
-            return '' + rankId;
+        // Just apply a simple gradient.
+        // 4 sets of triangles to form a checkerboard.
+        var checkerWidth = style.width / 20;
+        var checkerMargin = checkerWidth / 2;
+        style.backgroundImage = (
+            'linear-gradient(45deg, #808080 25%, transparent 25%),' +
+            'linear-gradient(-45deg, #808080 25%, transparent 25%),' +
+            'linear-gradient(45deg, transparent 75%, #808080 75%),' +
+            'linear-gradient(-45deg, transparent 75%, #808080 75%)');
+        style.backgroundSize = checkerWidth + 'px ' + checkerWidth + 'px';
+        style.backgroundPosition = '0 0, 0 ' + checkerMargin + 'px,'  +
+                                   ' ' + checkerMargin + 'px ' + -checkerMargin
+                                   + 'px, ' + -checkerMargin + 'px 0px';
+    } else {
+        // Sprites go: A 2 3 4 .. K (left to right).
+        // And then go: H S D C (top to bottom).
+        // Sprites are
+        var rankId = jam_proto.Card.Rank[props.rank];
+        if (rankId == jam_proto.Card.Rank.ACE) {
+            rankId = 1;
         }
-        switch (rankId) {
-            case jam_proto.Card.Rank.JACK:
-                return 'J';
-            case jam_proto.Card.Rank.QUEEN:
-                return 'Q';
-            case jam_proto.Card.Rank.KING:
-                return 'K';
-            case jam_proto.Card.Rank.ACE:
-                return 'A';
-            default:
-                check(false, 'Unknown rank: ' + rankId);
-        }
-    }
-
-    function renderSuit(suitId) {
-        switch(suitId) {
+        var rankIndex = rankId - 1;  // 0-index.
+        var suitId = jam_proto.Card.Suit[props.suit];
+        var suitIndex = -1;
+        switch (suitId) {
             case jam_proto.Card.Suit.HEARTS:
-                return 'h';
+                suitIndex = 0;
+                break;
             case jam_proto.Card.Suit.SPADES:
-                return 's';
+                suitIndex = 1;
+                break;
             case jam_proto.Card.Suit.DIAMONDS:
-                return 'd';
+                suitIndex = 2;
+                break;
             case jam_proto.Card.Suit.CLUBS:
-                return 'c';
+                suitIndex = 3;
+                break;
         }
-        check(false, 'Unknown suit: ' + suitId);
+        check(suitIndex != -1, 'Unknown suit ' + suitIndex);
+
+        // 
+        var leftPos = (100.0 / 13) * (rankIndex + rankIndex / 12) + '%';
+        var topPos = (100.0 / 4) * (suitIndex + suitIndex / 3) + '%';
+        style.background = 'url(assets/card_sprites.jpg) no-repeat 0 0';
+        style.backgroundSize = '1300% 400%';
+        style.backgroundPosition = leftPos + ' ' + topPos;
     }
-    var rankId = jam_proto.Card.Rank[props.rank];
-    var suitId = jam_proto.Card.Suit[props.suit];
-    var cardStr = renderRank(rankId) + renderSuit(suitId);
-    return e('div', {className: 'card'}, cardStr);
+    return e('div', { style: style });
 }
 
 // Just a list of cards.
@@ -206,6 +240,24 @@ function Board(props) {
     ]);
 }
 
+// Renders all players in the game.
+function Players(props) {
+    var loggedInPlayerId = props.ui.playerId;
+    var els = [];
+    for (var i = 0; i < props.players.length; ++i) {
+        var subprops = Object.assign(
+            {key: 'player-' + props.players[i].id,
+            playerId: props.players[i].id},
+            props);
+        if (props.players[i].id === loggedInPlayerId) {
+            els.push(e(LoggedInPlayerPanel, subprops));
+        } else {
+            els.push(e(PlayerPanel, subprops));
+        }
+    }
+    return e('div', {className: 'players clearfix'}, els);
+}
+
 // The player's information about the current hand (cards + bet in the pot).
 // Cards would be hidden for players who aren't the logged in player -- but
 // the server has to handle this view.
@@ -225,27 +277,51 @@ function PlayerPanel(props) {
     }
     var stackSizeText = 'Stack: ' + player.stackSize;
     var playerTotalInPot = playerState.amountInPot + newStreetBetSize;
-    if (playerTotalInPot > 0) {
-        console.log(props.currentHand);
-        var winStackSize = (
-            player.stackSize + props.currentHand.board.pot.size -
-            playerState.amountInPot);
-        var loseStackSize = player.stackSize - playerTotalInPot;
-        stackSizeText += ' (W=' + winStackSize + ', L=' + loseStackSize + ')';
+    var specialPosition = null;
+    var specialPositionProps = {className: 'special-position', key: 'special'};
+    if (props.currentHand.dealerId === props.playerId) {
+        specialPosition = e('span', specialPositionProps, '(D)');
+    } else if (props.currentHand.smallBlindId === props.playerId) {
+        specialPosition = e('span', specialPositionProps, '(SB)');
+    } else if (props.currentHand.bigBlindId === props.playerId) {
+        specialPosition = e('span', specialPositionProps, '(BB)');
     }
-    return e('div',  {className: 'player'}, [
+    return e('div', {
+        className: classNames({
+            player: props.ui.playerId !== props.playerId,
+            loggedInPlayer: props.ui.playerId === props.playerId}),
+        }, [
         // Game-specific info.
         e('div', {
             key: 'name',
-            className: 'name',
-        }, player.name + (isPlayerAction ? ' is under the gun!' : '')),
-        e('div', {key: 'stack', className: 'stack'}, stackSizeText),
-        // Hand-specific info.
+            className: 'player-title',
+        }, [
+            e('span', {className: 'name', key: 'name'}, player.name),
+            specialPosition,
+            ]),
+        e('img', {
+            src: player.imageUrl || './assets/bbq.jpg',
+            className: classNames({
+                action: isPlayerAction,
+                'profile-pic': true}),
+            key: 'img',
+        }),
+        e('div', {
+            key: 'stack',
+            className: classNames({stack: true, 'stillIn': !playerState.active}),
+        },
+            [
+                e('span', {key: '0', className: 'stack'}, 'Stack: '),
+                e('span', {key: '1', className: 'stack-size'}, player.stackSize),
+                e('span', {key: '3', className: 'bet'}, 'Bet: '),
+                e('span', {key: '4', className: 'bet-size'}, playerTotalInPot),
+                ((newStreetBetSize > 0) ?
+                    e('span', {
+                        key: '5',
+                        className: 'street-bet-size'},
+                        '(street: ' + newStreetBetSize + ')') : null),
+            ]),
         e(CardList, {key: 'cards', cards: playerState.cards}),
-        e('div', {key: 'bet', className: 'betSize'}, betSizeText),
-        e('div', {key: 'pot', className: 'amountInPot'}, amountInPotText),
-        e('div', {key: 'folded', className: 'folded'}, (
-            'Folded: ' + (playerState.active ? 'no' : 'yes'))),
     ]);
 }
 
@@ -255,28 +331,58 @@ function PlayerPanel(props) {
 // encouragement.
 function LoggedInPlayerPanel(props) {
     var isPlayerAction = props.ui.playerId === props.currentHand.actionPlayerId;
-    return e('div', null, [
-            e(SpecialMessage, {key: 'message', message: 'You are a real BBQ with that hand!'}),
+    return e('div', {className: 'player'}, [
             e(PlayerPanel, Object.assign({key: 'player', playerId: props.playerViewId}, props)),
+            e('div', {className: 'clearfix', key: 'clearfix'}),
             (isPlayerAction ?
-                e(PlayerControls, Object.assign({key: 'actions'}, props)) :
-                e('div', {key: 'not-your-action'}, 'It\'s not your action.')),
+                e(PlayerControls, Object.assign({key: 'actions'}, props)) : null),
     ]);
-}
-
-function ErrorModal(props) {
-    if (!props.error) {
-        return null;
-    }
-    return e('div', {className: 'errorModal'}, props.error);
 }
 
 function GamePending(props) {
     return e('div', null, 'Waiting for others to join..');
 }
 
+function HandResult(props) {
+    var player = findPlayer(
+        props.players,
+        props.currentHand.result.winningPlayerId);
+    function handler() {
+        console.log('Clicked again.');
+        props.events.emit('update:next-hand');
+    }
+    var winningHand = props.currentHand.result.winningHand;
+    var playerWon = player.id === props.ui.playerId;
+    var resultText = (playerWon ? 'You' : player.name) + ' won with a ' + winningHand.type;
+    return e('div',  {className: 'handResult'}, [
+            e('div', {key: 'winner', className: 'winner-msg'}, resultText),
+            e('img', {
+                key: 'img',
+                src: player.imageUri || './assets/bbq.jpg',
+                className: 'winning-bbq'}),
+            (!playerWon ?
+                e('div', {
+                    key: 'msg',
+                    className: 'ev-slave'},
+                    'Keep being a slave to the EV.') : null),
+            e(CardList, {
+                key: 'cards',
+                cards: winningHand.cards}),
+            e('button', {
+                key: 'button',
+                disabled: props.ui.sending,
+                onClick: handler},
+                'Put me in again, coach!'),
+        ]);
+}
+
+
 // A component for actually playing the hand (betting, etc).
 function Hand(props) {
+    var els = [];
+    if (!!props.currentHand.result) {
+        els.push(e(HandResult, props));
+    }
     return e('div', null, 'The hand is going');
 }
 
@@ -336,7 +442,7 @@ function FoldButton(props) {
     function handler(event) {
         props.events.emit('update:active', !event.target.checked);
     }
-    return e('div', {className: 'checkbox'}, [
+    return e('span', {className: 'checkbox'}, [
             e('span', {key: 'label', className: 'checkbox-label'}, 'Fold: '),
             e('input', {
                 key: 'checkbox',
@@ -365,26 +471,21 @@ function Bet(props) {
     };
     // TODO make these configurable / relative to the pot etc / do the validation
     // here.
-    var placeBetButtons = e('div', {className: 'bet'}, [
-            e('span', {key: 'current-bet'}, 'Bet: ' + playerState.betSize),
+    var placeBetButtons = e('span', {className: 'bet'}, [
+            e('span', {key: 'current-bet'}, 'Bet: '),
+            e('input', {
+                onChange: handler,
+                disabled: props.ui.sending,
+                value: playerState.betSize,
+                className: 'bet-input',
+                key: 'input'}),
             e('span', {className: 'betAmount', key: 'update-buttons'},
                 [e('button', {
                     className: 'betButton',
-                    key: '+2',
                     disabled: props.ui.sending,
-                    onClick: tryUpdateBet.bind(null, playerState.betSize + 2)}, '+2'),
-                e('button', {
-                    className: 'betButton',
-                    disabled: props.ui.sending,
-                    key: '+4',
-                    onClick: tryUpdateBet.bind(null, playerState.betSize + 4)}, '+4'),
-                e('button', {
-                    className: 'betButton',
-                    disabled: props.ui.sending,
-                    style: {background: 'red', color: 'green'},
                     key: 'all_in',
                     onClick: tryUpdateBet.bind(null, player.stackSize - playerState.amountInPot - playerState.streetBetSize)}, 'JAM'),
-                e('input', {onChange: handler, disabled: props.ui.sending, value: playerState.betSize, key: 'input'})])
+                ])
             ]);
     return playerState.active ? placeBetButtons : null;
 }

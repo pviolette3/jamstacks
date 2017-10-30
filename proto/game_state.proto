@@ -17,6 +17,9 @@ message GameState {
 
         // The amount the player bought in for, in cents.
         int64 buy_in_size = 4;
+
+        // The image that the UI should render for the player.
+        string image_uri = 5;
     }
 
     // The amount of money each player has. The order of the players in this
@@ -38,9 +41,24 @@ message GameState {
         IN_PROGRESS = 1;
         OGRE = 2;
     }
-    Status status = 6;
-}
 
+    // The status of the *game*.
+    Status status = 6;
+
+    // At the end of the game (status == OGRE), how much players should pay each
+    // other so that everyone is evened up.
+    message Payout {
+        // Who's paying.
+        optional string from_id = 1;
+
+        // Who they're paying it to.
+        optional string to_id = 2;
+
+        // How much they're paying.
+        int64 amount = 3;
+    }
+    repeated Payout payouts = 7;
+}
 
 message UpdateError {
     enum Code {

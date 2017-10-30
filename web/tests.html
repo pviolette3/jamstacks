@@ -10,8 +10,10 @@
               'of React.JS -- sorry no jamz for you!!');
     }
     </script>
+    <link rel="stylesheet" type="text/css" href="./jam.css">
     <script src="./lib/protobuf.js"></script>
     <script src="./proto/jam.proto.js"></script>
+    <script src="./lib/classnames.js"></script>
     <script src="./lib/freezer.js"></script>
     <script src="./lib/react.js"></script>
     <script src="./lib/react-dom.js"></script>
@@ -29,6 +31,7 @@
     <div id="card-list" class="test-pane"></div>
     <div id="logged-in-panel" class="test-pane"></div>
     <div id="board" class="test-pane"></div>
+    <div id="hand-result" class="test-pane"></div>
 </body>
 <script type="text/javascript">
     // Sends events with a second of delay.
@@ -45,9 +48,18 @@
             playerState.streetBetSize += playerState.betSize;
             playerState.betSize = 0;
             state.currentHand.playerStates.splice(0, 1, playerState);
-            freezer.get().currentHand.set('actionPlayerId', '9109410');
+            freezer.get().currentHand.set('actionPlayerId', '9');
             callback(/* err = */ null);
-        }, 10);
+        }, 250);
+    };
+    TestHandler.prototype.sendReadyNextHand = function(callback) {
+        var nextHand = new jam_proto.HandState.NextHand();
+        var freezer = this.freezer;
+        nextHand.playerId = freezer.get().ui.playerId;
+        setTimeout(function() {
+            console.log('The action was received: ', nextHand);
+            callback(/* err = */ null);
+        }, 250);
     };
     // A "simple" function that updates the subcomponent when the freezer
     // object is updated.
@@ -68,15 +80,16 @@
 </script>
 <script type="text/javascript">
     ReactDOM.render(
-        React.createElement(Card, {rank: 'QUEEN', suit: 'HEARTS'}),
+        React.createElement(Card, {rank: 'KING', suit: 'CLUBS'}),
         document.getElementById('card'));
 </script>
 <script type="text/javascript">
     ReactDOM.render(
         React.createElement(CardList, {cards: [
-            {rank: 'QUEEN', suit: 'HEARTS'},
-            {rank: 'KING', suit: 'SPADES'},
-            {rank: 'TWO', suit: 'DIAMONDS'}]}),
+            {rank: 'ACE', suit: 'HEARTS'},
+            {rank: 'SEVEN', suit: 'HEARTS'},
+            {rank: 'KING', suit: 'HEARTS'},
+            {rank: 'KING', suit: 'CLUBS'}]}),
         document.getElementById('card-list'));
 </script>
 <script type="text/javascript">
@@ -88,21 +101,33 @@ var loggedInPlayerFreezer = new Freezer({
         actionPlayerId: '8',
         playerViewId: '8',
         playerStates: [
-            {id: '8', active: true, betSize: 0, streetBetSize: 4, amountInPot: 4, cards: [
+            {id: '8', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
                 {rank: 'TWO', suit: 'CLUBS'}, {rank: 'SEVEN', suit: 'SPADES'}]},
+            {id: '9', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
+                {hidden: true}, {hidden: true}]},
+            {id: '10', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
+                {hidden: true}, {hidden: true}]},
+            {id: '11', active: true, betSize: 0, streetBetSize: 4, amountInPot: 2, cards: [
+                {hidden: true}, {hidden: true}]},
         ],
+        dealerId: '9',
+        smallBlindId: '10',
+        bigBlindId: '8',
         board: {
             pot: { size: 24, currentBet: 4},
         }
     },
     players: [
         {id: '8', stackSize: 50, name: 'Patrick'},
+        {id: '9', stackSize: 50, name: 'Nick'},
+        {id: '10', stackSize: 50, name: 'Daniel'},
+        {id: '11', stackSize: 50, name: 'Walker'},
     ],
 });
 loggedInPlayerFreezer.on('update', function(state) { if (state.error) { alert(state.error); }});
 setupEvents(loggedInPlayerFreezer, new TestHandler(loggedInPlayerFreezer));
 ReactDOM.render(
-    e(makeApp(LoggedInPlayerPanel, loggedInPlayerFreezer)),
+    e(makeApp(Players, loggedInPlayerFreezer)),
     document.getElementById('logged-in-panel'));
 </script>
 <script type="text/javascript">
@@ -135,11 +160,11 @@ ReactDOM.render(
                     {rank: jam_proto.Card.Rank[4], suit: 'CLUBS'},
                     {rank: jam_proto.Card.Rank[5], suit: 'CLUBS'});
                 i = 3;
-                street = 'PRE_FLOP';
+                street = 'FLOP';
             } else if (i  == 3) {
                 cards.splice(i++, 1,
                     {rank: jam_proto.Card.Rank[6], suit: 'CLUBS'});
-                street = 'FLOP';
+                street = 'TURN';
             } else if (i == 4) {
                 cards.splice(i++, 1,
                     {rank: jam_proto.Card.Rank[7], suit: 'CLUBS'});
@@ -167,5 +192,50 @@ ReactDOM.render(
             null),
         document.getElementById('board'));
 })();
+</script>
+<script type="text/javascript">
+var endOfHandFreezer = new Freezer({
+    ui: { playerId: '8', error: {}, sending: false},
+    playerViewId: '8',
+    currentHand: {
+        street: 'FLOP',
+        actionPlayerId: '8',
+        playerViewId: '8',
+        playerStates: [
+            {id: '8', cards: [{rank: 'TWO', suit: 'CLUBS'}, {rank: 'SEVEN', suit: 'SPADES'}]},
+            {id: '9', cards: [{hidden: true}, {hidden: true}]},
+            {id: '10', cards: [{hidden: true}, {hidden: true}]},
+            {id: '11', cards: [{hidden: true}, {hidden: true}]},
+        ],
+        result: {
+            winningPlayerId: '8',
+            winningHand: {
+                cards: [
+                    {rank: 'TWO', suit: 'CLUBS'},
+                    {rank: 'SEVEN', suit: 'SPADES'},
+                    {rank: 'TWO', suit: 'HEARTS'},
+                    {rank: 'TWO', suit: 'DIAMONDS'},
+                    {rank: 'SEVEN', suit: 'CLUBS'}],
+                type: 'FULL_HOUSE',
+            },
+        },
+        dealerId: '9',
+        smallBlindId: '10',
+        bigBlindId: '8',
+        board: {
+            pot: { size: 24, currentBet: 4},
+        }
+    },
+    players: [
+        {id: '8', stackSize: 50, name: 'Patrick'},
+        {id: '9', stackSize: 50, name: 'Nick'},
+        {id: '10', stackSize: 50, name: 'Daniel'},
+        {id: '11', stackSize: 50, name: 'Walker'},
+    ],
+});
+setupEvents(endOfHandFreezer, new TestHandler(endOfHandFreezer));
+ReactDOM.render(
+    e(makeApp(HandResult, endOfHandFreezer)),
+    document.getElementById('hand-result'));
 </script>
 </html>
