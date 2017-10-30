@@ -1,0 +1,4 @@
+prebuilt_cxx_library(
+ name = "gflags",
+ header_dirs = [""],
+

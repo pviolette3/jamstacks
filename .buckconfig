@@ -1,0 +1,5 @@
+[cxx]
+  cxxpp = /usr/bin/clang++
+  cxx = /usr/bin/clang++
+  cxxppflags = -Wall
+  cxxflags = -Wall -std=c++14

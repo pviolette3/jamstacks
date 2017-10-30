@@ -1,0 +1,14 @@
+export_file(
+  name = "all_protos",
+  src = "./",
+  out = "all_protos",
+)
+
+genrule(
+  name = "protos",
+  srcs = [
+    ":all_protos",
+  ],
+  bash = "protoc --proto_path=\"${SRCDIR}/all_protos\" --cpp_out=\"${OUT}\" ${SRCDIR}/all_protos/*.proto",
+  out = "../",
+)
